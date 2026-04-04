@@ -34,6 +34,7 @@ const state = {
   settingsSaving: false,
   settingsDraft: { repName: "", theme: "light" },
   currentCall: blankCurrentCall(),
+  quoteModalOpen: false,
 };
 
 const BRANCH_TONES = {
@@ -121,7 +122,7 @@ function callContextSummary() {
   ].filter(Boolean).join("\n");
 }
 
-function openQuoteWorkspace() {
+function buildQuoteWorkspaceUrl() {
   saveCurrentCallContext();
   const params = new URLSearchParams();
   const data = state.currentCall || blankCurrentCall();
@@ -131,47 +132,62 @@ function openQuoteWorkspace() {
   if (data.clientPhone) params.set("client_phone", data.clientPhone);
   if (data.clientAddress) params.set("address", data.clientAddress);
   if (repName) params.set("rep_name", repName);
-  const url = `./quote-workspace.html${params.toString() ? `?${params.toString()}` : ""}`;
-  window.open(url, "_blank", "noopener,noreferrer");
+  return `./quote-workspace.html${params.toString() ? `?${params.toString()}` : ""}`;
 }
 
-function pullQuoteContextFromStorage() {
+function openQuoteModal() {
+  state.quoteModalOpen = true;
+  render();
+}
+
+function closeQuoteModal() {
+  state.quoteModalOpen = false;
+  render();
+}
+
+function applyQuoteContext(parsed, { silent = false } = {}) {
+  if (!parsed || typeof parsed !== "object") return false;
+  const current = state.currentCall || blankCurrentCall();
+  state.currentCall = {
+    ...current,
+    clientName: parsed.clientName || current.clientName || "",
+    clientEmail: parsed.clientEmail || current.clientEmail || "",
+    clientPhone: parsed.clientPhone || current.clientPhone || "",
+    clientAddress: parsed.address || current.clientAddress || "",
+    sqft: parsed.sqft || "",
+    beds: parsed.beds || "",
+    baths: parsed.baths || "",
+    serviceType: parsed.serviceType || current.serviceType || "",
+    dirtLevel: parsed.dirtLevel || "",
+    oneTimePrice: parsed.oneTimePrice || "",
+    weeklyPrice: parsed.weeklyPrice || "",
+    biweeklyPrice: parsed.biweeklyPrice || "",
+    monthlyPrice: parsed.monthlyPrice || "",
+    addOnSummary: parsed.addOnSummary || "",
+    quoteUpdatedAt: parsed.updatedAt ? new Date(parsed.updatedAt).toLocaleString() : "",
+  };
+  saveCurrentCallContext();
+  if (!silent) notify("Quote data loaded into this call.", "success");
+  return true;
+}
+
+function pullQuoteContextFromStorage({ silent = false } = {}) {
   try {
     const raw = window.localStorage.getItem(QUOTE_CONTEXT_STORAGE_KEY);
     if (!raw) {
-      notify("No quote data found yet.", "error");
+      if (!silent) notify("No quote data found yet.", "error");
       return;
     }
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") {
-      notify("Quote data is invalid.", "error");
+      if (!silent) notify("Quote data is invalid.", "error");
       return;
     }
-    const current = state.currentCall || blankCurrentCall();
-    state.currentCall = {
-      ...current,
-      clientName: parsed.clientName || current.clientName || "",
-      clientEmail: parsed.clientEmail || current.clientEmail || "",
-      clientPhone: parsed.clientPhone || current.clientPhone || "",
-      clientAddress: parsed.address || current.clientAddress || "",
-      sqft: parsed.sqft || "",
-      beds: parsed.beds || "",
-      baths: parsed.baths || "",
-      serviceType: parsed.serviceType || "",
-      dirtLevel: parsed.dirtLevel || "",
-      oneTimePrice: parsed.oneTimePrice || "",
-      weeklyPrice: parsed.weeklyPrice || "",
-      biweeklyPrice: parsed.biweeklyPrice || "",
-      monthlyPrice: parsed.monthlyPrice || "",
-      addOnSummary: parsed.addOnSummary || "",
-      quoteUpdatedAt: parsed.updatedAt ? new Date(parsed.updatedAt).toLocaleString() : "",
-    };
-    saveCurrentCallContext();
-    notify("Quote data loaded into this call.", "success");
-    render();
+    const applied = applyQuoteContext(parsed, { silent });
+    if (applied) render();
   } catch (error) {
     console.error(error);
-    notify("Could not load quote data.", "error");
+    if (!silent) notify("Could not load quote data.", "error");
   }
 }
 
@@ -884,7 +900,6 @@ function homeScreen() {
         </div>
       </div>
 
-      ${renderCurrentCallPanel()}
 
       <div class="home-grid">
         <div class="home-card">
@@ -912,79 +927,171 @@ function homeScreen() {
       </div>
 
       ${renderFab()}
+      ${renderQuoteModal()}
     </div>
   `;
 }
 
 
-function renderCurrentCallPanel() {
+
+function stepTextFingerprint(step) {
+  return `${step?.title || ""} ${step?.label || ""} ${step?.subtitle || ""}`.toLowerCase();
+}
+
+function getContextSections(step) {
+  const fp = stepTextFingerprint(step);
+  const num = String(step?.num || step?.stepNumber || "").replace(/[^0-9]/g, "");
+  const showContact = num === "02" || /contact|info|quote|confirm/.test(fp);
+  const showProperty = ["03", "04", "05"].includes(num) || /intent|property|detail|path|type|service|scope|checklist|address/.test(fp);
+  const showQuote = ["07", "08", "09", "10", "11"].includes(num) || /value|price|invest|close|schedule|deposit/.test(fp);
+  return { showContact, showProperty, showQuote };
+}
+
+function renderStepContextAssist(step) {
   const call = state.currentCall || blankCurrentCall();
-  const quoteFacts = [
-    call.serviceType ? `Service: ${call.serviceType}` : null,
-    call.sqft ? `Sqft: ${call.sqft}` : null,
-    call.beds ? `Beds: ${call.beds}` : null,
-    call.baths ? `Baths: ${call.baths}` : null,
-    call.dirtLevel ? `Dirt: ${call.dirtLevel}` : null,
-    call.oneTimePrice ? `One-time: ${call.oneTimePrice}` : null,
-    call.biweeklyPrice ? `Biweekly: ${call.biweeklyPrice}` : null,
-    call.addOnSummary ? `Add-ons: ${call.addOnSummary}` : null,
-  ].filter(Boolean);
+  const { showContact, showProperty, showQuote } = getContextSections(step);
+  const blocks = [];
 
+  if (showContact) {
+    blocks.push(`
+      <div class="context-card">
+        <div class="context-card-head">
+          <div>
+            <div class="context-title">Capture client info</div>
+            <div class="helper-text">Fill this in as you ask it.</div>
+          </div>
+        </div>
+        <div class="context-grid three">
+          <label>
+            <span>Name</span>
+            <input value="${escapeHtml(call.clientName || "")}" data-role="current-call-field" data-field="clientName" placeholder="Jane Smith" />
+          </label>
+          <label>
+            <span>Email</span>
+            <input value="${escapeHtml(call.clientEmail || "")}" data-role="current-call-field" data-field="clientEmail" placeholder="jane@email.com" />
+          </label>
+          <label>
+            <span>Phone</span>
+            <input value="${escapeHtml(call.clientPhone || "")}" data-role="current-call-field" data-field="clientPhone" placeholder="(727) 555-0199" />
+          </label>
+        </div>
+      </div>
+    `);
+  }
+
+  if (showProperty) {
+    blocks.push(`
+      <div class="context-card">
+        <div class="context-card-head">
+          <div>
+            <div class="context-title">Property + path</div>
+            <div class="helper-text">Use this while you verify the home and route the cleaning type.</div>
+          </div>
+          <div class="inline-actions">
+            <button class="small-btn" data-action="open-quote-modal">Quote tool</button>
+            <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
+          </div>
+        </div>
+        <div class="context-grid property-grid">
+          <label class="span-2">
+            <span>Address</span>
+            <input value="${escapeHtml(call.clientAddress || "")}" data-role="current-call-field" data-field="clientAddress" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" />
+          </label>
+          <label>
+            <span>Service type</span>
+            <input value="${escapeHtml(call.serviceType || "")}" data-role="current-call-field" data-field="serviceType" placeholder="Deep / Move-Out / Post-Construction / Maintenance" />
+          </label>
+          <label>
+            <span>Dirt level</span>
+            <input value="${escapeHtml(call.dirtLevel || "")}" data-role="current-call-field" data-field="dirtLevel" placeholder="1-10" />
+          </label>
+          <label>
+            <span>Sqft</span>
+            <input value="${escapeHtml(call.sqft || "")}" data-role="current-call-field" data-field="sqft" placeholder="1700" />
+          </label>
+          <label>
+            <span>Beds</span>
+            <input value="${escapeHtml(call.beds || "")}" data-role="current-call-field" data-field="beds" placeholder="3" />
+          </label>
+          <label>
+            <span>Baths</span>
+            <input value="${escapeHtml(call.baths || "")}" data-role="current-call-field" data-field="baths" placeholder="2" />
+          </label>
+        </div>
+      </div>
+    `);
+  }
+
+  if (showQuote) {
+    const facts = [
+      call.oneTimePrice ? `One-time ${call.oneTimePrice}` : null,
+      call.weeklyPrice ? `Weekly ${call.weeklyPrice}` : null,
+      call.biweeklyPrice ? `Biweekly ${call.biweeklyPrice}` : null,
+      call.monthlyPrice ? `Monthly ${call.monthlyPrice}` : null,
+      call.addOnSummary ? `Add-ons: ${call.addOnSummary}` : null,
+    ].filter(Boolean);
+
+    blocks.push(`
+      <div class="context-card compact">
+        <div class="context-card-head">
+          <div>
+            <div class="context-title">Quote context</div>
+            <div class="helper-text">${call.quoteUpdatedAt ? `Last updated ${escapeHtml(call.quoteUpdatedAt)}` : "Open the quote tool when you need pricing."}</div>
+          </div>
+          <div class="inline-actions">
+            <button class="small-btn" data-action="open-quote-modal">Quote tool</button>
+            <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
+            <button class="warning-btn" data-action="clear-current-call">Clear call</button>
+          </div>
+        </div>
+        <div class="context-grid quote-grid">
+          <label>
+            <span>One-time</span>
+            <input value="${escapeHtml(call.oneTimePrice || "")}" data-role="current-call-field" data-field="oneTimePrice" placeholder="$0" />
+          </label>
+          <label>
+            <span>Weekly</span>
+            <input value="${escapeHtml(call.weeklyPrice || "")}" data-role="current-call-field" data-field="weeklyPrice" placeholder="$0" />
+          </label>
+          <label>
+            <span>Biweekly</span>
+            <input value="${escapeHtml(call.biweeklyPrice || "")}" data-role="current-call-field" data-field="biweeklyPrice" placeholder="$0" />
+          </label>
+          <label>
+            <span>Monthly</span>
+            <input value="${escapeHtml(call.monthlyPrice || "")}" data-role="current-call-field" data-field="monthlyPrice" placeholder="$0" />
+          </label>
+          <label class="span-2">
+            <span>Add-on summary</span>
+            <input value="${escapeHtml(call.addOnSummary || "")}" data-role="current-call-field" data-field="addOnSummary" placeholder="Windows x 8 • Fridge x 1" />
+          </label>
+        </div>
+        ${facts.length ? `<div class="token-list">${facts.map((item) => `<span class="quote-fact">${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+      </div>
+    `);
+  }
+
+  if (!blocks.length) return "";
+  return `<div class="context-stack">${blocks.join("")}</div>`;
+}
+
+function renderQuoteModal() {
+  if (!state.quoteModalOpen) return "";
   return `
-    <div class="current-call-card">
-      <div class="current-call-head">
-        <div>
-          <div class="builder-title">Current call</div>
-          <div class="helper-text">This is temporary call context for live reference and variable replacement. It is not a client database.</div>
+    <div class="modal-backdrop" data-action="close-quote-modal">
+      <div class="quote-modal" role="dialog" aria-modal="true" aria-label="Quote tool" onclick="event.stopPropagation()">
+        <div class="quote-modal-head">
+          <div>
+            <div class="context-title">Quote tool</div>
+            <div class="helper-text">Use the calculator here, then apply the latest quote data back into the script.</div>
+          </div>
+          <div class="inline-actions">
+            <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
+            <button class="small-btn" data-action="close-quote-modal">Close</button>
+          </div>
         </div>
-        <div class="inline-actions">
-          <button class="small-btn" data-action="open-quote-workspace">Open quote tool</button>
-          <button class="small-btn" data-action="pull-quote-context">Pull quote data</button>
-          <button class="ghost-btn" data-action="copy-call-summary">Copy summary</button>
-          <button class="warning-btn" data-action="clear-current-call">Clear</button>
-        </div>
+        <iframe class="quote-frame" src="${escapeHtml(buildQuoteWorkspaceUrl())}" title="Quote workspace"></iframe>
       </div>
-
-      <div class="builder-grid four current-call-grid">
-        <label>
-          <span>Client name</span>
-          <input value="${escapeHtml(call.clientName || "")}" data-role="current-call-field" data-field="clientName" placeholder="Jane Smith" />
-        </label>
-        <label>
-          <span>Client email</span>
-          <input value="${escapeHtml(call.clientEmail || "")}" data-role="current-call-field" data-field="clientEmail" placeholder="jane@email.com" />
-        </label>
-        <label>
-          <span>Client phone</span>
-          <input value="${escapeHtml(call.clientPhone || "")}" data-role="current-call-field" data-field="clientPhone" placeholder="(727) 555-0199" />
-        </label>
-        <label class="span-2">
-          <span>Property address</span>
-          <input value="${escapeHtml(call.clientAddress || "")}" data-role="current-call-field" data-field="clientAddress" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" />
-        </label>
-      </div>
-
-      <div class="token-list">
-        <span class="token-chip">{{client_first_name}}</span>
-        <span class="token-chip">{{client_name}}</span>
-        <span class="token-chip">{{client_email}}</span>
-        <span class="token-chip">{{client_phone}}</span>
-        <span class="token-chip">{{client_address}}</span>
-        <span class="token-chip">{{sqft}}</span>
-        <span class="token-chip">{{beds}}</span>
-        <span class="token-chip">{{baths}}</span>
-        <span class="token-chip">{{service_type}}</span>
-        <span class="token-chip">{{one_time_price}}</span>
-        <span class="token-chip">{{biweekly_price}}</span>
-      </div>
-
-      ${quoteFacts.length ? `
-        <div class="quote-context-card">
-          <div class="block-title">Quote context</div>
-          <div class="quote-facts">${quoteFacts.map((item) => `<span class="quote-fact">${escapeHtml(item)}</span>`).join("")}</div>
-          ${call.quoteUpdatedAt ? `<div class="helper-text" style="margin-top:10px;">Last pulled from quote tool: ${escapeHtml(call.quoteUpdatedAt)}</div>` : ""}
-        </div>
-      ` : ""}
     </div>
   `;
 }
@@ -1346,7 +1453,6 @@ function flowScreen() {
         </div>
       </div>
 
-      ${renderCurrentCallPanel()}
 
       <div class="flow-layout">
         <aside class="step-rail">
@@ -1367,6 +1473,7 @@ function flowScreen() {
           <div class="flow-heading">${escapeHtml(flow.name)}</div>
           ${parent ? `<div class="parent-row"><div>Branch from ${escapeHtml(parent.title)}</div><button class="small-btn" data-action="go-step" data-step-id="${escapeHtml(parent.id)}">Back to parent</button></div>` : ""}
           <div class="ribbon">${renderEditableStepText(step)}</div>
+          ${renderStepContextAssist(step)}
           ${renderScript(step)}
           ${!step.special ? renderActionRow(step, flow) : ""}
           ${renderKeyPoints(step)}
@@ -1378,6 +1485,7 @@ function flowScreen() {
       </div>
 
       ${renderFab()}
+      ${renderQuoteModal()}
     </div>
   `;
 }
@@ -1489,8 +1597,12 @@ function onClick(event) {
     render();
     return;
   }
-  if (action === "open-quote-workspace") {
-    openQuoteWorkspace();
+  if (action === "open-quote-workspace" || action === "open-quote-modal") {
+    openQuoteModal();
+    return;
+  }
+  if (action === "close-quote-modal") {
+    closeQuoteModal();
     return;
   }
   if (action === "pull-quote-context") {
@@ -1721,8 +1833,8 @@ subscribeToAuth(async (user) => {
 });
 
 window.addEventListener("storage", (event) => {
-  if (event.key === QUOTE_CONTEXT_STORAGE_KEY) {
-    // allow the rep to pull refreshed quote data manually without keeping two apps tightly coupled
+  if (event.key === QUOTE_CONTEXT_STORAGE_KEY && event.newValue) {
+    pullQuoteContextFromStorage({ silent: true });
   }
 });
 
