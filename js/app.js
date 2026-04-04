@@ -8,6 +8,7 @@ import {
   seedWorkspaceIfEmpty,
 } from "./firebase-service.js";
 import { DEFAULT_GROUPS } from "./defaults.js";
+import { serializeWorkspaceToText, parseWorkspaceText, validateWorkspaceSchema, mergeWorkspaceByIds } from "./schema-io.js";
 
 const root = document.getElementById("app");
 
@@ -559,36 +560,70 @@ function openImport() {
   input?.click();
 }
 
+function promptImportMode() {
+  const answer = window.prompt(
+    [
+      'Import mode?',
+      'Type MERGE to update matching call type ids and add new ones.',
+      'Type REPLACE to swap the whole workspace.',
+      'Leave blank to cancel.'
+    ].join('\n'),
+    'merge'
+  );
+  if (!answer) return null;
+  const value = answer.trim().toLowerCase();
+  if (value === 'merge' || value === 'replace') return value;
+  notify('Import cancelled. Type merge or replace.', 'error');
+  return null;
+}
+
 function handleImport(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const parsed = JSON.parse(String(reader.result || ""));
-      const next = normalizeWorkspace(parsed);
-      if (state.editMode) {
-        state.draft = next;
-        state.dirty = true;
-      } else {
-        state.workspace = next;
+      const parsed = parseWorkspaceText(String(reader.result || ""));
+      const imported = normalizeWorkspace(parsed);
+      const issues = validateWorkspaceSchema(imported);
+      if (issues.length) {
+        throw new Error(issues.slice(0, 6).join('\n'));
       }
+
+      const mode = promptImportMode();
+      if (!mode) return;
+
+      const baseWorkspace = state.editMode && state.draft ? state.draft : state.workspace;
+      const nextWorkspace = mode === 'merge'
+        ? normalizeWorkspace(mergeWorkspaceByIds(baseWorkspace, imported))
+        : imported;
+
+      state.draft = deepClone(nextWorkspace);
+      state.editMode = true;
+      state.dirty = true;
+      state.screen = 'home';
       syncSelection();
       render();
-      notify("Import loaded. Save to keep it.", "success");
+      notify(
+        mode === 'merge'
+          ? 'Merged into draft. Review it, then hit ✓ to save.'
+          : 'Replacement loaded into draft. Hit ✓ to save it.',
+        'success'
+      );
     } catch (error) {
       console.error(error);
-      notify("Could not import that file.", "error");
+      notify(error.message || 'Could not import that file.', 'error');
     }
   };
   reader.readAsText(file);
 }
 
 function exportWorkspace() {
-  const blob = new Blob([JSON.stringify(workspaceSource(), null, 2)], { type: "application/json" });
+  const payload = serializeWorkspaceToText(workspaceSource());
+  const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = "call-guide-workspace.json";
+  anchor.download = 'call-guide-workspace.txt';
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -660,9 +695,9 @@ function homeScreen() {
         </div>
         <div></div>
         <div class="utility-actions">
-          <button class="small-btn" data-action="export-workspace">Export</button>
-          <button class="small-btn" data-action="import-workspace">Import</button>
-          <input id="workspace-import" type="file" accept="application/json" class="hidden" />
+          <button class="small-btn" data-action="export-workspace">Export .txt</button>
+          <button class="small-btn" data-action="import-workspace">Import .txt</button>
+          <input id="workspace-import" type="file" accept=".txt,.yaml,.yml,application/json,text/plain" class="hidden" />
           <button class="small-btn" data-action="sign-out">Sign out</button>
         </div>
       </div>
@@ -744,8 +779,8 @@ function renderHomeBuilder() {
           <label>
             <span>Import or export</span>
             <div class="inline-actions">
-              <button class="small-btn" data-action="export-workspace">Export</button>
-              <button class="small-btn" data-action="import-workspace">Import</button>
+              <button class="small-btn" data-action="export-workspace">Export .txt</button>
+              <button class="small-btn" data-action="import-workspace">Import .txt</button>
             </div>
           </label>
         </div>
