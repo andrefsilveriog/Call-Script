@@ -396,6 +396,7 @@
     </div>
     <div class="toolbar-actions">
       <button class="btn btn-primary" id="searchBtn">Search Zillow</button>
+      <button class="btn btn-secondary" id="applyQuoteBtn">Apply to Script</button>
       <button class="btn btn-secondary" id="resetBtn">Reset</button>
     </div>
   </div>
@@ -740,6 +741,7 @@ function bindEvents() {
   });
 
   $("resetBtn").addEventListener("click", resetForm);
+  $("applyQuoteBtn").addEventListener("click", applyQuoteToScript);
 }
 
 function populateBandSelect() {
@@ -983,6 +985,8 @@ function recalculate() {
   renderQuote(calculateQuote(readInputs()));
 }
 
+let lastCalculatedResult = null;
+
 function renderQuote(result) {
   const groupedAddons = result.breakdown.petCharge + result.breakdown.addOnTotal;
 
@@ -991,6 +995,7 @@ function renderQuote(result) {
   $("lineAddons").textContent = formatMoney(groupedAddons);
   $("summaryAddons").textContent = formatMoney(groupedAddons);
   updateAddOnUi(result);
+  lastCalculatedResult = result;
 
   $("lineMeta").textContent = `${result.selected.bandId} • ${RATE_MODES[result.selected.rateMode].label} (${formatMoney(result.selected.rate)}/hr) • ${result.oneTime.hoursEstimate} hrs`;
 
@@ -1022,7 +1027,6 @@ function renderQuote(result) {
   $("metaBand").textContent = result.selected.bandId;
 
   if (!state.manualBandOverride) syncBandToSqft();
-  persistQuoteContext(result);
 }
 
 function syncBandToSqft() {
@@ -1165,28 +1169,44 @@ function currentAddOnSummary() {
   return formatAddOnSummaryFromInputs(inputs.pets, inputs.addOns).text;
 }
 
-function persistQuoteContext(result) {
+
+function buildQuotePayload(result) {
+  return {
+    clientName: linkedContext.clientName || "",
+    clientEmail: linkedContext.clientEmail || "",
+    clientPhone: linkedContext.clientPhone || "",
+    address: addressInput.value.trim() || $("resultAddress").textContent || linkedContext.address || "",
+    sqft: String(result?.selected?.sqft || "").trim(),
+    beds: $("statBeds").textContent === "—" ? "" : $("statBeds").textContent,
+    baths: $("statBaths").textContent === "—" ? "" : $("statBaths").textContent,
+    serviceType: result?.selected?.serviceType || "",
+    dirtLevel: String(result?.selected?.dirt || ""),
+    oneTimePrice: $("summaryOneTime").textContent || "",
+    weeklyPrice: $("summaryWeekly").textContent || "",
+    biweeklyPrice: $("summaryBiweekly").textContent || "",
+    monthlyPrice: $("summaryMonthly").textContent || "",
+    addOnSummary: currentAddOnSummary(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function applyQuoteToScript() {
   try {
-    const payload = {
-      clientName: linkedContext.clientName || "",
-      clientEmail: linkedContext.clientEmail || "",
-      clientPhone: linkedContext.clientPhone || "",
-      address: addressInput.value.trim() || $("resultAddress").textContent || linkedContext.address || "",
-      sqft: String(result.selected.sqft || "").trim(),
-      beds: $("statBeds").textContent === "—" ? "" : $("statBeds").textContent,
-      baths: $("statBaths").textContent === "—" ? "" : $("statBaths").textContent,
-      serviceType: result.selected.serviceType || "",
-      dirtLevel: String(result.selected.dirt || ""),
-      oneTimePrice: $("summaryOneTime").textContent || "",
-      weeklyPrice: $("summaryWeekly").textContent || "",
-      biweeklyPrice: $("summaryBiweekly").textContent || "",
-      monthlyPrice: $("summaryMonthly").textContent || "",
-      addOnSummary: currentAddOnSummary(),
-      updatedAt: new Date().toISOString(),
-    };
+    const payload = buildQuotePayload(lastCalculatedResult || calculateQuote(readInputs()));
     window.localStorage.setItem(QUOTE_CONTEXT_STORAGE_KEY, JSON.stringify(payload));
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "joc:quote-context", payload }, "*");
+    }
+    const pill = $("lookupModePill");
+    const old = pill.textContent;
+    pill.textContent = "Applied to script";
+    setTimeout(() => { pill.textContent = old; }, 1500);
   } catch (err) {
     console.error(err);
+    const pill = $("lookupModePill");
+    const old = pill.textContent;
+    pill.textContent = "Apply failed";
+    setTimeout(() => { pill.textContent = old; }, 1500);
   }
 }
 

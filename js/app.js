@@ -1091,7 +1091,7 @@ function renderQuoteModal() {
         <div class="quote-modal-head">
           <div>
             <div class="context-title">Quote tool</div>
-            <div class="helper-text">Use the calculator here, then apply the latest quote data back into the script.</div>
+            <div class="helper-text">Use the calculator here. When you are done, click Apply to Script inside the calculator or use the button here.</div>
           </div>
           <div class="inline-actions">
             <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
@@ -1849,11 +1849,21 @@ subscribeToAuth(async (user) => {
 
 window.addEventListener("storage", (event) => {
   if (event.key === QUOTE_CONTEXT_STORAGE_KEY && event.newValue && !state.quoteModalOpen) {
-    // Intentionally do not auto-render while the quote modal is open.
-    // The calculator writes quote data frequently, and re-rendering here would
-    // constantly recreate the iframe and make it unusable.
+    // Optional passive sync when the modal is closed.
+    pullQuoteContextFromStorage({ silent: true });
   }
 });
 
+window.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || typeof data !== "object") return;
+  if (data.type === "joc:quote-context") {
+    const applied = applyQuoteContext(data.payload || {}, { silent: true });
+    if (applied) {
+      notify("Quote data loaded into this call.", "success");
+      render();
+    }
+  }
+});
 
 render();
