@@ -26,6 +26,7 @@ const state = {
   saving: false,
   dirty: false,
   authMode: "signin",
+  authForm: { email: "", password: "" },
   activeFlowId: null,
   activeStepId: null,
   openGroupId: null,
@@ -398,22 +399,22 @@ function renderAuthScreen() {
         </div>
         <p class="auth-copy">Email/password auth, Firestore-backed flows, grouped call types, and a locked presentation mode with one floating edit button.</p>
         <div class="auth-toggle">
-          <button class="seg-btn ${state.authMode === "signin" ? "active" : ""}" data-action="set-auth-mode" data-mode="signin">Sign in</button>
-          <button class="seg-btn ${state.authMode === "signup" ? "active" : ""}" data-action="set-auth-mode" data-mode="signup">Create account</button>
+          <button class="seg-btn ${state.authMode === "signin" ? "active" : ""}" type="button" data-action="set-auth-mode" data-mode="signin">Sign in</button>
+          <button class="seg-btn ${state.authMode === "signup" ? "active" : ""}" type="button" data-action="set-auth-mode" data-mode="signup">Create account</button>
         </div>
         <form id="auth-form" class="auth-form">
           <label>
             <span>Email</span>
-            <input type="email" name="email" required autocomplete="email" placeholder="you@company.com" ${state.authPending ? "disabled" : ""}>
+            <input type="email" name="email" required autocomplete="email" inputmode="email" value="${escapeHtml(state.authForm.email || "")}" placeholder="you@company.com" ${state.authPending ? "disabled" : ""}>
           </label>
           <label>
             <span>Password</span>
-            <input type="password" name="password" minlength="6" required autocomplete="current-password" placeholder="At least 6 characters" ${state.authPending ? "disabled" : ""}>
+            <input type="password" name="password" minlength="6" required autocomplete="current-password" value="${escapeHtml(state.authForm.password || "")}" placeholder="At least 6 characters" ${state.authPending ? "disabled" : ""}>
           </label>
           <button class="primary-btn auth-submit" type="submit" ${state.authPending ? "disabled" : ""}>${state.authPending ? "Working…" : state.authMode === "signin" ? "Sign in" : "Create account"}</button>
         </form>
         <div class="auth-actions">
-          <button class="secondary-btn" data-action="reset-browser">Reset browser data for this app</button>
+          <button class="secondary-btn" type="button" data-action="reset-browser">Reset browser data for this app</button>
           <span class="muted-note">Use this if the normal tab acts cursed while anonymous tabs work.</span>
         </div>
         ${!isConfigured() ? `<div class="notice-block warn">Firebase is not configured yet. Paste your web app config into <code>js/firebase-config.js</code>.</div>` : ""}
@@ -1156,8 +1157,9 @@ async function handleAuthSubmit(form) {
     return;
   }
   const formData = new FormData(form);
-  const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
+  const email = String(formData.get("email") || state.authForm.email || "").trim();
+  const password = String(formData.get("password") || state.authForm.password || "");
+  state.authForm = { email, password };
   if (!email || !password) {
     showNotice("error", "Email and password are required.");
     render();
@@ -1226,6 +1228,7 @@ async function handleAction(action, target) {
   switch (action) {
     case "set-auth-mode":
       state.authMode = target.dataset.mode === "signup" ? "signup" : "signin";
+      clearNotice();
       break;
 
     case "toggle-theme": {
@@ -1561,6 +1564,13 @@ root.addEventListener("click", async (event) => {
 
 root.addEventListener("input", (event) => {
   const element = event.target;
+  if (element.name === "email" || element.name === "password") {
+    state.authForm = {
+      ...state.authForm,
+      [element.name]: element.value,
+    };
+    return;
+  }
   const path = element.dataset.path;
   if (!path || !state.editMode) return;
   const type = element.type === "checkbox" ? "checkbox" : "text";
@@ -1635,6 +1645,11 @@ document.addEventListener("click", (event) => {
     state.editMode = false;
     state.draft = null;
     state.dirty = false;
+    if (user) {
+      state.authForm = { email: user.email || "", password: "" };
+    } else {
+      state.authForm = { email: state.authForm.email || "", password: "" };
+    }
     render();
     if (user) {
       await loadUserWorkspace(user);
