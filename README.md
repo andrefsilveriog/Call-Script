@@ -1,92 +1,65 @@
-# Call Script Builder — HTML + Firebase + GitHub Pages
+# Call Workflow Studio
 
-This version is ready to host on **GitHub Pages** while using **Firebase Authentication** and **Cloud Firestore** for login and saved data.
+A static HTML/CSS/JS app for managing call workflows with Firebase Auth + Firestore and GitHub Pages.
 
-## What it does
+## What changed in this pass
 
-- Email + password login
-- Firestore-backed flows and steps
-- One floating edit button
-  - **Pencil** = enter edit mode
-  - **Checkmark** = save all draft changes
-- UI management for:
+- cleaner, more polished shell
+- grouped top navigation with dropdown menus
+  - example: `Inbound` -> `No Quote`, `Has Quote`
+- one floating button only
+  - pencil = enter edit mode
+  - checkmark = save everything
+- stronger builder panel for creating and managing:
+  - top navigation groups
   - call types / flows
   - steps
-  - order
   - branches
-  - guarantees
-  - follow-up blocks
-  - key points
-  - extra reference blocks
-- Theme toggle
-- First-login workspace seeding
+  - special step templates
+- import/export JSON backup
+- browser reset action for weird cached-state issues
+- current Firebase web config already wired in
 
-## Hosting model
+## Folder structure
 
-- **GitHub Pages** hosts the static app
-- **Firebase Auth** handles login
-- **Cloud Firestore** stores your workspace data
-
-That means you can keep evolving your flows inside the UI without redeploying the site every time you change content.
-
-## Main files
-
-- `index.html` — app entry
-- `404.html` — fallback page for static hosting
-- `styles.css` — UI styles
-- `js/defaults.js` — seed data
-- `js/app.js` — main UI logic
-- `js/firebase-service.js` — auth + Firestore persistence
-- `js/firebase-config.js` — paste your real Firebase config here
-- `js/firebase-config.example.js` — config template
-- `firestore.rules` — Firestore rules starter
+- `index.html` — entry page
+- `styles.css` — all styling
+- `js/app.js` — UI, builder, navigation, edit mode
+- `js/defaults.js` — seeded flows and step defaults
+- `js/firebase-config.js` — your Firebase web config
+- `js/firebase-service.js` — auth + Firestore layer
+- `firestore.rules` — Firestore security rules
 - `.github/workflows/deploy-pages.yml` — GitHub Pages deployment workflow
-- `DEPLOY_GITHUB_PAGES.md` — full setup guide
+- `DEPLOY_GITHUB_PAGES.md` — step-by-step deployment guide
 
-## Fast start
+## Local note
 
-1. Paste your Firebase config into `js/firebase-config.js`
-2. Enable **Email/Password** in Firebase Authentication
-3. Create Firestore
-4. Publish `firestore.rules`
-5. Push this repo to GitHub
-6. In **GitHub → Settings → Pages**, set **Source = GitHub Actions**
-7. Add your GitHub Pages domain to Firebase **Authorized domains**
+You do not need a bundler. This is a plain static site.
 
-Then open the deployed site and sign up.
-
-## Local run
-
-Any static server works:
+A simple local server is enough, for example:
 
 ```bash
-python3 -m http.server 8080
+python3 -m http.server 8000
 ```
 
-Then open:
+Then open `http://localhost:8000`.
 
-```text
-http://localhost:8080
-```
+## Firebase data model
 
-## Full instructions
+Each authenticated user gets a private workspace under:
 
-Read:
+- `users/{uid}/meta/settings`
+  - theme
+  - top navigation groups
+- `users/{uid}/flows/{flowId}`
+  - flow metadata
+- `users/{uid}/flows/{flowId}/steps/{stepId}`
+  - step content and structure
 
-- `DEPLOY_GITHUB_PAGES.md`
+## Recommended next pass after this one
 
-## Notes
-
-- Theme changes save immediately when you're **not** in edit mode.
-- Content changes save when you click the floating **checkmark**.
-- Flow IDs and step IDs are generated and kept stable to protect internal references.
-- Branch targets are stored by step ID.
-
-## Suggested next upgrades
-
-- Password reset
-- Invite-only user creation
-- Role-based permissions
-- Import/export backup
-- Drag-and-drop ordering
-- Rich text editor for scripts
+- password reset
+- drag-and-drop step ordering
+- richer branch editing UX
+- duplicate group
+- optional autosave with undo

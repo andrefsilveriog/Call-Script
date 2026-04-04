@@ -1,276 +1,192 @@
-# Deploy to GitHub Pages + Firebase (Full Setup)
+# GitHub Pages + Firebase deployment instructions
 
-This project can be hosted on **GitHub Pages** while using **Firebase Authentication** and **Cloud Firestore** for login and data.
-
-You do **not** need Firebase Hosting for the website itself.
+This is the simple version.
 
 ---
 
-## 1) Create your Firebase project
+## 1. Create the Firebase project
 
-1. Go to the Firebase console.
-2. Create a new project.
-3. In the project overview, add a **Web app**.
-4. Copy the Firebase config object.
+Go to Firebase Console and create a project.
 
-Then open:
+Inside that project:
 
-- `js/firebase-config.js`
-
-Replace the placeholder values with your real Firebase config.
+- add a **Web App**
+- enable **Authentication > Email/Password**
+- create **Firestore Database**
 
 ---
 
-## 2) Enable email/password login
+## 2. Check `js/firebase-config.js`
 
-In Firebase Console:
+This project already contains your Firebase web config.
 
-1. Open **Authentication**.
-2. Go to **Sign-in method**.
-3. Enable **Email/Password**.
-4. Save.
+Open this file and confirm the values are correct:
 
-You can create the first user in two ways:
+- `apiKey`
+- `authDomain`
+- `projectId`
+- `storageBucket`
+- `messagingSenderId`
+- `appId`
 
-- use the app's sign-up screen, or
-- create users manually in Firebase Authentication.
-
----
-
-## 3) Create Firestore database
-
-In Firebase Console:
-
-1. Open **Firestore Database**.
-2. Click **Create database**.
-3. Start in **production mode** or **test mode** temporarily.
-4. Pick a region.
-
-After the database exists, publish your Firestore rules.
+If you ever switch Firebase projects, this is the file you replace.
 
 ---
 
-## 4) Apply Firestore rules
+## 3. Add your GitHub Pages domain to Firebase Authentication
 
-This repo includes:
+After you know your GitHub Pages URL, add that domain in:
 
-- `firestore.rules`
-
-### Easy way: Firebase Console
-
-1. Open **Firestore Database → Rules**.
-2. Paste the contents of `firestore.rules`.
-3. Click **Publish**.
-
-### CLI way
-
-If you prefer CLI:
-
-```bash
-npm install -g firebase-tools
-firebase login
-firebase init firestore
-firebase deploy --only firestore:rules
-```
-
-If `firebase init firestore` asks questions, point it at this repo and keep `firestore.rules` as the rules file.
-
----
-
-## 5) Add your GitHub Pages domain to Firebase authorized domains
-
-This matters for auth in production.
-
-In Firebase Console:
-
-1. Open **Authentication**.
-2. Open **Settings**.
-3. Find **Authorized domains**.
-4. Add your GitHub Pages domain.
+**Firebase Console > Authentication > Settings > Authorized domains**
 
 Examples:
 
 - `yourusername.github.io`
-- `yourusername.github.io/your-repo-name` → add **`yourusername.github.io`** as the domain
-- custom domain like `scripts.yourdomain.com` → add that domain too
+- `yourusername.github.io/repo-name` uses the domain `yourusername.github.io`
 
-For local testing, `localhost` is usually already allowed.
+Important: Firebase authorized domains use the domain, not the full path.
 
 ---
 
-## 6) Create your GitHub repository
+## 4. Publish Firestore rules
 
-Create a new GitHub repo, then upload this project.
+Open:
 
-Recommended structure:
+**Firebase Console > Firestore Database > Rules**
+
+Paste the contents of `firestore.rules` and publish them.
+
+Current rules mean:
+
+- signed-in users can only read and write their own workspace
+- one user cannot see another user's data
+
+---
+
+## 5. Create the GitHub repository
+
+Create a new GitHub repository.
+
+You can name it anything.
+
+Then upload the full project folder contents.
+
+Important files to keep:
 
 - `index.html`
-- `404.html`
 - `styles.css`
-- `js/...`
-- `assets/...`
+- `js/`
 - `.github/workflows/deploy-pages.yml`
-
-Then commit and push:
-
-```bash
-git init
-git branch -M main
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
-git push -u origin main
-```
+- `.nojekyll`
+- `404.html`
 
 ---
 
-## 7) Turn on GitHub Pages
+## 6. Turn on GitHub Pages
 
-In your GitHub repository:
+In the repo:
 
-1. Open **Settings**.
-2. Open **Pages**.
-3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+- go to **Settings**
+- open **Pages**
+- set **Source** to **GitHub Actions**
 
-This repo already includes a workflow file:
-
-- `.github/workflows/deploy-pages.yml`
-
-Every push to `main` will deploy the static app to GitHub Pages.
+That is required because this project already includes a Pages workflow.
 
 ---
 
-## 8) Wait for first deploy
+## 7. Push to `main`
 
-After pushing:
+Every push to the `main` branch triggers deployment.
 
-1. Open the **Actions** tab on GitHub.
-2. Wait for **Deploy to GitHub Pages** to finish.
-3. Open the URL GitHub gives you.
+Then:
 
-Typical URL:
-
-- `https://YOUR_USERNAME.github.io/YOUR_REPO/`
-
-If this is a special user site repo named exactly `YOUR_USERNAME.github.io`, then the URL is:
-
-- `https://YOUR_USERNAME.github.io/`
+- open the **Actions** tab
+- wait for the Pages workflow to finish
+- open the site URL shown in **Settings > Pages**
 
 ---
 
-## 9) First login and seeding
+## 8. Create your first account
 
-On first sign-up / first login:
+On the live site:
 
-- the app creates your personal workspace in Firestore
-- if your account has no flows yet, it seeds the default workspace
+- click **Create account**
+- enter email + password
+- sign in
 
-From then on, your edits are saved to Firestore, not to GitHub Pages files.
-
-That means:
-
-- GitHub Pages hosts the app
-- Firebase stores your content and login
+The app seeds your workspace automatically if it is empty.
 
 ---
 
-## 10) Normal editing flow
+## 9. First test checklist
 
-- Click the floating **pencil** button to enter edit mode.
-- Make changes anywhere in the UI.
-- Click the floating **checkmark** to save everything.
+After first login, test this exact list:
 
-You can create and manage:
+1. create an account
+2. sign out
+3. sign back in
+4. open edit mode with the pencil
+5. create a new top nav group
+6. create a new call type
+7. create a new step
+8. hit the checkmark to save
+9. refresh the page
+10. confirm everything stayed there
 
-- call types / flows
-- steps
-- step order
-- branches
-- key points
-- guarantee stacks
-- follow-up blocks
-- extra reference blocks
-
----
-
-## 11) Common production checklist
-
-Before you rely on it daily, confirm these:
-
-- Firebase config pasted correctly in `js/firebase-config.js`
-- Email/Password enabled
-- Firestore database created
-- Firestore rules published
-- GitHub Pages domain added to Firebase authorized domains
-- First GitHub Pages deployment succeeded
-- You can sign up
-- You can create a flow
-- You can reload and still see saved data
+If all 10 work, deployment is good.
 
 ---
 
-## 12) Important architecture note
+## 10. If the normal browser tab acts weird but anonymous works
 
-Your content is in **Firestore**, not in the static files.
+Use the built-in button on the login screen:
 
-So:
+**Reset browser data for this app**
 
-- changing scripts inside the app does **not** require redeploying GitHub Pages
-- changing app code / layout / features **does** require a new GitHub push
+That tries to clear local app state, caches, and browser storage for this site.
 
----
-
-## 13) Optional: custom domain
-
-If you later connect a custom domain to GitHub Pages:
-
-1. set the custom domain in GitHub Pages
-2. configure DNS with your domain provider
-3. add that same domain to Firebase **Authorized domains**
-
-If auth emails or sign-in links ever use your site domain, keep Firebase domain settings in sync.
+If that still fails, clear the site data manually in your browser settings.
 
 ---
 
-## 14) Troubleshooting
+## 11. Updating the live site later
 
-### "Firebase is not configured yet"
-Your `js/firebase-config.js` still has placeholders.
+Two kinds of updates exist:
 
-### Login works locally but not on GitHub Pages
-Your production domain is probably missing from **Firebase Authentication → Settings → Authorized domains**.
+### Content / structure updates inside the app
+No redeploy needed.
 
-### Data does not save
-Usually one of these:
+Examples:
 
-- Firestore database not created yet
-- Firestore rules too strict or not published
-- wrong Firebase `projectId`
-- browser console contains Firebase permission errors
+- new group
+- new call type
+- new step
+- new script text
+- new branch
 
-### Blank page after deploy
-Check GitHub **Actions** for workflow errors and open browser dev tools for JS errors.
+Those save to Firestore.
 
----
+### Code / layout updates
+Redeploy required.
 
-## 15) If you want zero CLI
+Examples:
 
-You can do almost everything through the web UIs:
+- changing CSS
+- changing app behavior
+- changing builder features
+- changing Firebase logic
 
-- Firebase Console for Auth + Firestore + Rules
-- GitHub web UI for repo + Pages + Actions
-
-The only manual code step you still must do is pasting your Firebase config into:
-
-- `js/firebase-config.js`
+For those, edit the repo files and push to `main` again.
 
 ---
 
-## 16) Recommended next upgrades
+## 12. Safe operating habit
 
-- password reset
-- invite-only account creation
-- owner/admin roles
-- export/import backup
-- drag-and-drop step ordering
-- richer branch target picker UI
+Before major changes inside the builder:
+
+- enter edit mode
+- click **Export JSON**
+- save a backup file
+- then make big structural changes
+
+That gives you a manual restore point.

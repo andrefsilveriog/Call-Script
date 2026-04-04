@@ -530,7 +530,23 @@ export const DEFAULT_FLOWS = {
   "website-lead": { id: "website-lead", steps: WL_STEPS },
 };
 
+export const DEFAULT_GROUPS = [
+  { id: "website", name: "Website", icon: "🌐", order: 0 },
+  { id: "inbound", name: "Inbound", icon: "📞", order: 1 },
+  { id: "outbound", name: "Outbound", icon: "📤", order: 2 },
+  { id: "voicemail", name: "Voicemail", icon: "📬", order: 3 },
+  { id: "gatekeeper", name: "Gatekeeper", icon: "🤖", order: 4 },
+];
 
+export const DEFAULT_FLOW_GROUP_MAP = {
+  "website-lead": "website",
+  "inbound-no-quote": "inbound",
+  "inbound-has-quote": "inbound",
+  "outbound-post-quote": "outbound",
+  "outbound-no-reply": "outbound",
+  "voicemail": "voicemail",
+  "gatekeeper": "gatekeeper",
+};
 
 export function buildSeedWorkspace() {
   const emptyFlows = CALL_TYPES.map((type, index) => ({
@@ -538,6 +554,7 @@ export function buildSeedWorkspace() {
     name: type.name,
     icon: type.icon,
     desc: type.desc,
+    groupId: DEFAULT_FLOW_GROUP_MAP[type.id] || DEFAULT_GROUPS[0].id,
     order: index,
     steps: [],
   }));
@@ -559,6 +576,7 @@ export function buildSeedWorkspace() {
   });
 
   return {
+    groups: DEFAULT_GROUPS.map((group, index) => ({ ...group, order: group.order ?? index })),
     flows: workspaceFlows,
     theme: "dark",
   };

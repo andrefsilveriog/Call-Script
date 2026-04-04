@@ -11,8 +11,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
-  deleteDoc,
   collection,
   query,
   orderBy,
@@ -21,7 +19,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 import { firebaseConfig, isFirebaseConfigured } from "./firebase-config.js";
-import { buildSeedWorkspace } from "./defaults.js";
+import { buildSeedWorkspace, DEFAULT_GROUPS } from "./defaults.js";
 
 let app = null;
 let auth = null;
@@ -51,12 +49,22 @@ function stepsCollection(uid, flowId) {
   return collection(db, "users", uid, "flows", flowId, "steps");
 }
 
-function sanitizeFlow(flow, index) {
+function sanitizeGroup(group, index) {
+  return {
+    id: group.id,
+    name: group.name || "New Group",
+    icon: group.icon || "🗂️",
+    order: Number.isFinite(group.order) ? group.order : index,
+  };
+}
+
+function sanitizeFlow(flow, index, fallbackGroupId) {
   return {
     id: flow.id,
     name: flow.name || "Untitled Flow",
     icon: flow.icon || "📞",
     desc: flow.desc || "",
+    groupId: flow.groupId || fallbackGroupId,
     order: Number.isFinite(flow.order) ? flow.order : index,
     updatedAt: serverTimestamp(),
   };
@@ -135,6 +143,10 @@ export async function loadWorkspace(uid) {
 
   const settingsSnap = await getDoc(settingsRef(uid));
   const flowsSnap = await getDocs(query(flowsCollection(uid), orderBy("order")));
+  const settings = settingsSnap.exists() ? settingsSnap.data() : {};
+  const groups = Array.isArray(settings.groups) && settings.groups.length
+    ? settings.groups
+    : DEFAULT_GROUPS;
 
   const flows = [];
   for (const flowDoc of flowsSnap.docs) {
@@ -147,7 +159,8 @@ export async function loadWorkspace(uid) {
   }
 
   return {
-    theme: settingsSnap.exists() ? settingsSnap.data().theme || "dark" : "dark",
+    theme: settings.theme || "dark",
+    groups,
     flows,
   };
 }
@@ -168,14 +181,22 @@ export async function saveWorkspace(uid, workspace) {
 
   const flowDocs = await getDocs(flowsCollection(uid));
   const existingFlowIds = new Set(flowDocs.docs.map((docSnap) => docSnap.id));
-  const nextFlowIds = new Set(workspace.flows.map((flow) => flow.id));
+  const nextFlowIds = new Set((workspace.flows || []).map((flow) => flow.id));
+  const groups = Array.isArray(workspace.groups) && workspace.groups.length
+    ? workspace.groups.map((group, index) => sanitizeGroup(group, index))
+    : DEFAULT_GROUPS;
+  const fallbackGroupId = groups[0]?.id || "general";
 
   const ops = [];
 
   ops.push({
     type: "set",
     ref: settingsRef(uid),
-    data: { theme: workspace.theme || "dark", updatedAt: serverTimestamp() },
+    data: {
+      theme: workspace.theme || "dark",
+      groups,
+      updatedAt: serverTimestamp(),
+    },
   });
 
   for (const flowDoc of flowDocs.docs) {
@@ -188,22 +209,20 @@ export async function saveWorkspace(uid, workspace) {
     }
   }
 
-  for (let flowIndex = 0; flowIndex < workspace.flows.length; flowIndex += 1) {
+  for (let flowIndex = 0; flowIndex < (workspace.flows || []).length; flowIndex += 1) {
     const flow = workspace.flows[flowIndex];
     const flowRef = doc(db, "users", uid, "flows", flow.id);
     ops.push({
       type: "set",
       ref: flowRef,
-      data: sanitizeFlow(flow, flowIndex),
+      data: sanitizeFlow(flow, flowIndex, fallbackGroupId),
     });
 
     const existingStepsSnap = existingFlowIds.has(flow.id)
       ? await getDocs(stepsCollection(uid, flow.id))
       : { docs: [] };
 
-    const existingStepIds = new Set(existingStepsSnap.docs.map((docSnap) => docSnap.id));
     const nextStepIds = new Set((flow.steps || []).map((step) => step.id));
-
     for (const stepDoc of existingStepsSnap.docs) {
       if (!nextStepIds.has(stepDoc.id)) {
         ops.push({ type: "delete", ref: stepDoc.ref });
