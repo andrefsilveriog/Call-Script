@@ -799,33 +799,40 @@ body[data-theme="dark"] .auth-card p {
   z-index: 1000;
 }
 
-.quote-modal {
+.quote-modal-shell {
   width: min(1440px, 96vw);
   height: min(92vh, 980px);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow);
   display: grid;
   grid-template-rows: auto 1fr;
-  overflow: hidden;
+  gap: 0;
+  position: relative;
+  z-index: 1002;
 }
 
-.quote-modal-head {
+.quote-modal-toolbar {
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-bottom: 0;
   background: var(--surface);
-  position: relative;
-  z-index: 3;
-  pointer-events: auto;
 }
 
-.quote-modal-head .inline-actions {
+.quote-modal-actions {
+  flex-shrink: 0;
+}
+
+.quote-modal {
+  width: 100%;
+  height: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  overflow: hidden;
   position: relative;
-  z-index: 4;
+  z-index: 1001;
 }
 
 .quote-frame {
@@ -833,8 +840,7 @@ body[data-theme="dark"] .auth-card p {
   height: 100%;
   border: 0;
   background: #fff;
-  position: relative;
-  z-index: 1;
+  display: block;
 }
 
 @media (max-width: 1100px) {

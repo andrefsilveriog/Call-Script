@@ -1087,18 +1087,20 @@ function renderQuoteModal() {
   if (!state.quoteModalOpen) return "";
   return `
     <div class="modal-backdrop" data-action="close-quote-modal">
-      <div class="quote-modal" role="dialog" aria-modal="true" aria-label="Quote tool" onclick="event.stopPropagation()">
-        <div class="quote-modal-head">
+      <div class="quote-modal-shell" role="dialog" aria-modal="true" aria-label="Quote tool" onclick="event.stopPropagation()">
+        <div class="quote-modal-toolbar">
           <div>
             <div class="context-title">Quote tool</div>
             <div class="helper-text">Use the calculator here. When you are done, click Apply to Script inside the calculator or use the button here.</div>
           </div>
-          <div class="inline-actions">
-            <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
-            <button class="small-btn" data-action="close-quote-modal">Close</button>
+          <div class="inline-actions quote-modal-actions">
+            <button type="button" id="quoteModalApplyBtn" class="ghost-btn">Apply latest quote</button>
+            <button type="button" id="quoteModalCloseBtn" class="small-btn">Close</button>
           </div>
         </div>
-        <iframe class="quote-frame" src="${escapeHtml(buildQuoteWorkspaceUrl())}" title="Quote workspace"></iframe>
+        <div class="quote-modal">
+          <iframe class="quote-frame" src="${escapeHtml(buildQuoteWorkspaceUrl())}" title="Quote workspace"></iframe>
+        </div>
       </div>
     </div>
   `;
@@ -1823,6 +1825,20 @@ async function onSubmit(event) {
 root.addEventListener("click", onClick);
 
 document.addEventListener("click", (event) => {
+  const modalApply = event.target.closest('#quoteModalApplyBtn');
+  if (modalApply) {
+    event.preventDefault();
+    event.stopPropagation();
+    pullQuoteContextFromStorage();
+    return;
+  }
+  const modalClose = event.target.closest('#quoteModalCloseBtn');
+  if (modalClose) {
+    event.preventDefault();
+    event.stopPropagation();
+    closeQuoteModal();
+    return;
+  }
   const button = event.target.closest('[data-action="close-quote-modal"], [data-action="pull-quote-context"]');
   if (!button) return;
   event.preventDefault();
@@ -1836,6 +1852,13 @@ document.addEventListener("click", (event) => {
     pullQuoteContextFromStorage();
   }
 }, true);
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && state.quoteModalOpen) {
+    event.preventDefault();
+    closeQuoteModal();
+  }
+});
 root.addEventListener("input", onInput);
 root.addEventListener("change", onChange);
 root.addEventListener("submit", onSubmit);
