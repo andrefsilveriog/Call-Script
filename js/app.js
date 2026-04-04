@@ -25,6 +25,7 @@ const state = {
   authInfo: "",
   saveError: "",
   saveInfo: "",
+  authPending: false,
 };
 
 const palette = {
@@ -485,6 +486,18 @@ function renderBuilder() {
 function renderWorkspace() {
   const theme = themeVars();
   const workspace = currentWorkspace();
+  if (!workspace) {
+    return `
+      <div class="auth-shell">
+        <div class="auth-card">
+          <div class="auth-brand">JOC</div>
+          <h1>Loading workspace…</h1>
+          <p>Your account is signed in, but the workspace has not loaded yet.</p>
+          ${statusMarkup()}
+        </div>
+      </div>
+    `;
+  }
   const flow = currentFlow();
   const step = currentStep();
   const parent = parentStep();
@@ -595,8 +608,8 @@ function renderAuth() {
         <p>Vanilla HTML + Firebase version with login, live flow management, and edit mode locking.</p>
         ${statusMarkup()}
         <div class="auth-toggle">
-          <button class="${state.authMode === "signin" ? "active" : ""}" data-action="set-auth-mode" data-mode="signin">Sign in</button>
-          <button class="${state.authMode === "signup" ? "active" : ""}" data-action="set-auth-mode" data-mode="signup">Create account</button>
+          <button class="${state.authMode === "signin" ? "active" : ""}" data-action="set-auth-mode" data-mode="signin" ${state.authPending ? "disabled" : ""}>Sign in</button>
+          <button class="${state.authMode === "signup" ? "active" : ""}" data-action="set-auth-mode" data-mode="signup" ${state.authPending ? "disabled" : ""}>Create account</button>
         </div>
         <form id="auth-form" class="auth-form">
           <label>
@@ -607,7 +620,7 @@ function renderAuth() {
             <span>Password</span>
             <input type="password" name="password" required minlength="6" autocomplete="current-password" placeholder="At least 6 characters">
           </label>
-          <button class="auth-submit" type="submit">${state.authMode === "signin" ? "Sign in" : "Create account"}</button>
+          <button class="auth-submit" type="submit" ${state.authPending ? "disabled" : ""}>${state.authPending ? "Working…" : state.authMode === "signin" ? "Sign in" : "Create account"}</button>
         </form>
         <div class="setup-note">
           Enable Email/Password in Firebase Authentication, then paste your web app config into <code>js/firebase-config.js</code>.
@@ -619,6 +632,27 @@ function renderAuth() {
 
 function render() {
   ensureSelections();
+  if (state.user && (state.loading || !currentWorkspace())) {
+    const theme = themeVars();
+    document.documentElement.setAttribute("data-theme", currentTheme());
+    Object.entries({
+      "--bg": theme.bg,
+      "--text": theme.text,
+      "--text-secondary": theme.textSecondary,
+      "--accent": theme.accent,
+    }).forEach(([key, value]) => document.documentElement.style.setProperty(key, value));
+    root.innerHTML = `
+      <div class="auth-shell">
+        <div class="auth-card">
+          <div class="auth-brand">JOC</div>
+          <h1>Loading workspace…</h1>
+          <p>Your account was accepted. The app is pulling your flows and settings now.</p>
+          ${statusMarkup()}
+        </div>
+      </div>
+    `;
+    return;
+  }
   root.innerHTML = state.user ? renderWorkspace() : renderAuth();
 }
 
@@ -981,7 +1015,10 @@ root.addEventListener("change", (event) => {
 root.addEventListener("submit", async (event) => {
   if (event.target.id !== "auth-form") return;
   event.preventDefault();
+  if (state.authPending) return;
   resetNotices();
+  state.authPending = true;
+  render();
 
   const formData = new FormData(event.target);
   const email = String(formData.get("email") || "").trim();
@@ -989,14 +1026,21 @@ root.addEventListener("submit", async (event) => {
 
   try {
     if (state.authMode === "signin") {
+      state.authInfo = "Signing you in…";
+      render();
       await signInWithEmail(email, password);
     } else {
+      state.authInfo = "Creating your account…";
+      render();
       await signUpWithEmail(email, password);
       state.authInfo = "Account created. Loading your workspace…";
+      render();
     }
   } catch (error) {
     console.error(error);
     state.authError = error.message || "Authentication failed.";
+  } finally {
+    state.authPending = false;
     render();
   }
 });
