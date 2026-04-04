@@ -304,6 +304,68 @@ a { color: inherit; }
   white-space: pre-wrap;
 }
 
+.script-lines {
+  display: grid;
+  gap: 14px;
+  white-space: normal;
+}
+
+.script-line-block {
+  display: grid;
+  gap: 10px;
+}
+
+.script-line {
+  white-space: normal;
+}
+
+.script-gap {
+  height: 6px;
+}
+
+.inline-answer-block {
+  display: grid;
+  gap: 10px;
+  margin-left: 2px;
+}
+
+.inline-answer-block input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(255,255,255,0.24);
+  background: rgba(255,255,255,0.96);
+  color: var(--ink);
+  font-size: 16px;
+  border-radius: 10px;
+}
+
+.inline-answer-block input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(30, 199, 207, 0.2);
+}
+
+.inline-row-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inline-feedback {
+  font-size: 15px;
+  line-height: 1.45;
+  color: #d9f4ff;
+}
+
+.inline-feedback.error {
+  color: #ffd3d3;
+}
+
+.inline-feedback.success {
+  color: #d9f4ff;
+}
+
 .action-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

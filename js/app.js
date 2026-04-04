@@ -35,6 +35,7 @@ const state = {
   settingsDraft: { repName: "", theme: "light" },
   currentCall: blankCurrentCall(),
   quoteModalOpen: false,
+  inlineLookup: { loading: false, error: "" },
 };
 
 const BRANCH_TONES = {
@@ -49,6 +50,14 @@ const BRANCH_TONES = {
 
 const CURRENT_CALL_STORAGE_PREFIX = "call-guide-current-call:";
 const QUOTE_CONTEXT_STORAGE_KEY = "joc-quote-context-v1";
+
+const ZILLOW_API_KEY = "13f48093camsh327fb2e22872c41p19ff28jsn9ac49867622f";
+const ZILLOW_API_HOST = "private-zillow.p.rapidapi.com";
+const ZILLOW_HEADERS = {
+  "x-rapidapi-key": ZILLOW_API_KEY,
+  "x-rapidapi-host": ZILLOW_API_HOST,
+  "Content-Type": "application/json",
+};
 
 function blankCurrentCall() {
   return {
@@ -128,6 +137,71 @@ function callContextSummary() {
     data.serviceType ? `Service: ${data.serviceType}` : null,
     data.oneTimePrice ? `One-time: ${data.oneTimePrice}` : null,
   ].filter(Boolean).join("\n");
+}
+
+
+function formatMaybeNumber(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value);
+  return Number.isInteger(num) ? String(num) : String(num);
+}
+
+function buildResolvedAddress(raw = {}) {
+  return [raw.streetAddress, raw.city, raw.state, raw.zipcode].filter(Boolean).join(", ");
+}
+
+function buildPropertyConfirmationLine() {
+  const call = state.currentCall || blankCurrentCall();
+  const sqft = call.sqft || "—";
+  const beds = call.beds || "—";
+  const baths = call.baths || "—";
+  return `“I’m seeing about ${sqft} square feet, ${beds} bedrooms, and ${baths} bathrooms — does that sound right?”`;
+}
+
+function renderInlineText(value = "") {
+  return escapeHtml(String(value || "")).replaceAll("\n", "<br>");
+}
+
+function matchesScriptPrompt(line = "", patterns = []) {
+  const normalized = String(line || "").trim().toLowerCase();
+  return patterns.some((pattern) => normalized.includes(pattern));
+}
+
+async function lookupAddressInline() {
+  const address = (state.currentCall?.clientAddress || "").trim();
+  if (!address) {
+    notify("Enter an address first.", "error");
+    return;
+  }
+  state.inlineLookup = { loading: true, error: "" };
+  render();
+  try {
+    const response = await fetch(`https://${ZILLOW_API_HOST}/byaddress?propertyaddress=${encodeURIComponent(address)}`, {
+      headers: ZILLOW_HEADERS,
+    });
+    if (!response.ok) {
+      const txt = await response.text();
+      throw new Error(`Lookup failed (${response.status}) ${txt.slice(0, 120)}`);
+    }
+    const data = await response.json();
+    const resolvedAddress = buildResolvedAddress(data.PropertyAddress || {});
+    state.currentCall = {
+      ...state.currentCall,
+      clientAddress: resolvedAddress || state.currentCall.clientAddress || address,
+      sqft: data["Area(sqft)"] != null ? formatMaybeNumber(data["Area(sqft)"]) : "",
+      beds: data.Bedrooms != null ? formatMaybeNumber(data.Bedrooms) : "",
+      baths: data.Bathrooms != null ? formatMaybeNumber(data.Bathrooms) : "",
+    };
+    saveCurrentCallContext();
+    state.inlineLookup = { loading: false, error: "" };
+    render();
+  } catch (error) {
+    console.error(error);
+    state.inlineLookup = { loading: false, error: error.message || "Could not look up property." };
+    render();
+    notify(error.message || "Could not look up property.", "error");
+  }
 }
 
 function buildQuoteWorkspaceUrl() {
@@ -956,131 +1030,7 @@ function getContextSections(step) {
 }
 
 function renderStepContextAssist(step) {
-  const call = state.currentCall || blankCurrentCall();
-  const { showContact, showProperty, showQuote } = getContextSections(step);
-  const blocks = [];
-
-  if (showContact) {
-    blocks.push(`
-      <div class="context-card">
-        <div class="context-card-head">
-          <div>
-            <div class="context-title">Capture client info</div>
-            <div class="helper-text">Fill this in as you ask it.</div>
-          </div>
-        </div>
-        <div class="context-grid three">
-          <label>
-            <span>Name</span>
-            <input value="${escapeHtml(call.clientName || "")}" data-role="current-call-field" data-field="clientName" placeholder="Jane Smith" />
-          </label>
-          <label>
-            <span>Email</span>
-            <input value="${escapeHtml(call.clientEmail || "")}" data-role="current-call-field" data-field="clientEmail" placeholder="jane@email.com" />
-          </label>
-          <label>
-            <span>Phone</span>
-            <input type="tel" inputmode="tel" autocomplete="tel" maxlength="14" value="${escapeHtml(call.clientPhone || "")}" data-role="current-call-field" data-field="clientPhone" placeholder="(727) 555-0199" />
-          </label>
-        </div>
-      </div>
-    `);
-  }
-
-  if (showProperty) {
-    blocks.push(`
-      <div class="context-card">
-        <div class="context-card-head">
-          <div>
-            <div class="context-title">Property + path</div>
-            <div class="helper-text">Use this while you verify the home and route the cleaning type.</div>
-          </div>
-          <div class="inline-actions">
-            <button class="small-btn" data-action="open-quote-modal">Quote tool</button>
-            <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
-          </div>
-        </div>
-        <div class="context-grid property-grid">
-          <label class="span-2">
-            <span>Address</span>
-            <input value="${escapeHtml(call.clientAddress || "")}" data-role="current-call-field" data-field="clientAddress" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" />
-          </label>
-          <label>
-            <span>Service type</span>
-            <input value="${escapeHtml(call.serviceType || "")}" data-role="current-call-field" data-field="serviceType" placeholder="Deep / Move-Out / Post-Construction / Maintenance" />
-          </label>
-          <label>
-            <span>Dirt level</span>
-            <input value="${escapeHtml(call.dirtLevel || "")}" data-role="current-call-field" data-field="dirtLevel" placeholder="1-10" />
-          </label>
-          <label>
-            <span>Sqft</span>
-            <input value="${escapeHtml(call.sqft || "")}" data-role="current-call-field" data-field="sqft" placeholder="1700" />
-          </label>
-          <label>
-            <span>Beds</span>
-            <input value="${escapeHtml(call.beds || "")}" data-role="current-call-field" data-field="beds" placeholder="3" />
-          </label>
-          <label>
-            <span>Baths</span>
-            <input value="${escapeHtml(call.baths || "")}" data-role="current-call-field" data-field="baths" placeholder="2" />
-          </label>
-        </div>
-      </div>
-    `);
-  }
-
-  if (showQuote) {
-    const facts = [
-      call.oneTimePrice ? `One-time ${call.oneTimePrice}` : null,
-      call.weeklyPrice ? `Weekly ${call.weeklyPrice}` : null,
-      call.biweeklyPrice ? `Biweekly ${call.biweeklyPrice}` : null,
-      call.monthlyPrice ? `Monthly ${call.monthlyPrice}` : null,
-      call.addOnSummary ? `Add-ons: ${call.addOnSummary}` : null,
-    ].filter(Boolean);
-
-    blocks.push(`
-      <div class="context-card compact">
-        <div class="context-card-head">
-          <div>
-            <div class="context-title">Quote context</div>
-            <div class="helper-text">${call.quoteUpdatedAt ? `Last updated ${escapeHtml(call.quoteUpdatedAt)}` : "Open the quote tool when you need pricing."}</div>
-          </div>
-          <div class="inline-actions">
-            <button class="small-btn" data-action="open-quote-modal">Quote tool</button>
-            <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
-            <button class="warning-btn" data-action="clear-current-call">Clear call</button>
-          </div>
-        </div>
-        <div class="context-grid quote-grid">
-          <label>
-            <span>One-time</span>
-            <input value="${escapeHtml(call.oneTimePrice || "")}" data-role="current-call-field" data-field="oneTimePrice" placeholder="$0" />
-          </label>
-          <label>
-            <span>Weekly</span>
-            <input value="${escapeHtml(call.weeklyPrice || "")}" data-role="current-call-field" data-field="weeklyPrice" placeholder="$0" />
-          </label>
-          <label>
-            <span>Biweekly</span>
-            <input value="${escapeHtml(call.biweeklyPrice || "")}" data-role="current-call-field" data-field="biweeklyPrice" placeholder="$0" />
-          </label>
-          <label>
-            <span>Monthly</span>
-            <input value="${escapeHtml(call.monthlyPrice || "")}" data-role="current-call-field" data-field="monthlyPrice" placeholder="$0" />
-          </label>
-          <label class="span-2">
-            <span>Add-on summary</span>
-            <input value="${escapeHtml(call.addOnSummary || "")}" data-role="current-call-field" data-field="addOnSummary" placeholder="Windows x 8 • Fridge x 1" />
-          </label>
-        </div>
-        ${facts.length ? `<div class="token-list">${facts.map((item) => `<span class="quote-fact">${escapeHtml(item)}</span>`).join("")}</div>` : ""}
-      </div>
-    `);
-  }
-
-  if (!blocks.length) return "";
-  return `<div class="context-stack">${blocks.join("")}</div>`;
+  return "";
 }
 
 function renderQuoteModal() {
@@ -1197,14 +1147,73 @@ function renderEditableStepText(step) {
   return `<textarea data-role="step-field" data-field="subtitle">${escapeHtml(step.subtitle || "")}</textarea>`;
 }
 
+function renderInlineField(field, options = {}) {
+  const call = state.currentCall || blankCurrentCall();
+  const value = call[field] || "";
+  const type = options.type || "text";
+  const placeholder = options.placeholder || "";
+  const extraAttrs = [];
+  if (type === "tel") extraAttrs.push('inputmode="tel" autocomplete="tel" maxlength="14"');
+  if (type === "email") extraAttrs.push('inputmode="email" autocomplete="email"');
+  return `
+    <div class="inline-answer-block">
+      <input type="${type}" ${extraAttrs.join(" ")} value="${escapeHtml(value)}" data-role="current-call-field" data-field="${escapeHtml(field)}" placeholder="${escapeHtml(placeholder)}" />
+    </div>
+  `;
+}
+
+function renderAddressLookupBlock() {
+  const call = state.currentCall || blankCurrentCall();
+  return `
+    <div class="inline-answer-block inline-address-block">
+      <input value="${escapeHtml(call.clientAddress || "")}" data-role="current-call-field" data-field="clientAddress" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" />
+      <div class="inline-row-actions">
+        <button class="small-btn" data-action="lookup-zillow-inline">Lookup Zillow</button>
+        <button class="ghost-btn" data-action="open-quote-modal">Quote tool</button>
+      </div>
+      ${state.inlineLookup.loading ? `<div class="inline-feedback">Looking up property…</div>` : ""}
+      ${state.inlineLookup.error ? `<div class="inline-feedback error">${escapeHtml(state.inlineLookup.error)}</div>` : ""}
+    </div>
+  `;
+}
+
+function renderScriptLineWithFields(line = "") {
+  const trimmed = String(line || "").trim();
+  if (!trimmed) return `<div class="script-gap"></div>`;
+  const isPropertyConfirmation = matchesScriptPrompt(trimmed, ["i’m seeing about [x] square feet", "i'm seeing about [x] square feet"]);
+  const displayLine = isPropertyConfirmation && (state.currentCall?.sqft || state.currentCall?.beds || state.currentCall?.baths)
+    ? buildPropertyConfirmationLine()
+    : personalizeText(trimmed);
+
+  let attachment = "";
+  if (matchesScriptPrompt(trimmed, ["first and last name"])) {
+    attachment = renderInlineField("clientName", { placeholder: "Jane Smith" });
+  } else if (matchesScriptPrompt(trimmed, ["best email to send", "best email"])) {
+    attachment = renderInlineField("clientEmail", { type: "email", placeholder: "jane@email.com" });
+  } else if (matchesScriptPrompt(trimmed, ["best number to reach", "best phone number", "best number"])) {
+    attachment = renderInlineField("clientPhone", { type: "tel", placeholder: "(727) 555-0199" });
+  } else if (matchesScriptPrompt(trimmed, ["property address"])) {
+    attachment = renderAddressLookupBlock();
+  } else if (matchesScriptPrompt(trimmed, ["scale from 1 to 10", "how would you rate the home"])) {
+    attachment = renderInlineField("dirtLevel", { placeholder: "1-10" });
+  }
+
+  return `
+    <div class="script-line-block">
+      <div class="script-line">${renderInlineText(displayLine)}</div>
+      ${attachment}
+    </div>
+  `;
+}
+
 function renderScript(step) {
   if (step.special && step.specialType === "guarantees") {
     return `
       <div class="page-section">
         ${step.guarantees.map((item, index) => `
-          <div class="guarantee-card">
+          <div class="timeline-card">
             ${state.editMode ? `
-              <div class="guarantee-row">
+              <div class="timeline-row">
                 <input value="${escapeHtml(item.name || "")}" data-role="guarantee-field" data-index="${index}" data-field="name" />
                 <textarea data-role="guarantee-field" data-index="${index}" data-field="script">${escapeHtml(item.script || "")}</textarea>
                 <button class="warning-btn" data-action="remove-guarantee" data-index="${index}">×</button>
@@ -1247,7 +1256,8 @@ function renderScript(step) {
       <span class="script-label">Script</span>
       ${state.editMode
         ? `<textarea data-role="step-field" data-field="script">${escapeHtml(step.script || "")}</textarea>`
-        : `<div class="script-text">${renderText(step.script || "")}</div>`}
+        : `<div class="script-text script-lines">${String(step.script || "").split("
+").map((line) => renderScriptLineWithFields(line)).join("")}</div>`}
     </div>
   `;
 }
@@ -1619,6 +1629,10 @@ function onClick(event) {
     pullQuoteContextFromStorage();
     return;
   }
+  if (action === "lookup-zillow-inline") {
+    lookupAddressInline();
+    return;
+  }
   if (action === "copy-call-summary") {
     const summary = callContextSummary();
     if (!summary) {
@@ -1796,6 +1810,10 @@ function onChange(event) {
   }
   if (target.dataset.role === "current-call-field") {
     saveCurrentCallContext();
+    if (target.dataset.field === "clientAddress" && target.value.trim()) {
+      lookupAddressInline();
+      return;
+    }
     render();
   }
 }
