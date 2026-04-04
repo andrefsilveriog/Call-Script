@@ -70,6 +70,14 @@ function blankCurrentCall() {
   };
 }
 
+function formatUsPhoneInput(value = "") {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 10);
+  if (!digits) return "";
+  if (digits.length < 4) return `(${digits}`;
+  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 function currentCallStorageKey(uid = state.user?.uid) {
   return uid ? `${CURRENT_CALL_STORAGE_PREFIX}${uid}` : null;
 }
@@ -972,7 +980,7 @@ function renderStepContextAssist(step) {
           </label>
           <label>
             <span>Phone</span>
-            <input value="${escapeHtml(call.clientPhone || "")}" data-role="current-call-field" data-field="clientPhone" placeholder="(727) 555-0199" />
+            <input type="tel" inputmode="tel" autocomplete="tel" maxlength="14" value="${escapeHtml(call.clientPhone || "")}" data-role="current-call-field" data-field="clientPhone" placeholder="(727) 555-0199" />
           </label>
         </div>
       </div>
@@ -1670,7 +1678,14 @@ function onInput(event) {
   }
 
   if (target.dataset.role === "current-call-field") {
-    state.currentCall[target.dataset.field] = target.value;
+    const field = target.dataset.field;
+    if (field === "clientPhone") {
+      const formatted = formatUsPhoneInput(target.value);
+      target.value = formatted;
+      state.currentCall[field] = formatted;
+    } else {
+      state.currentCall[field] = target.value;
+    }
     saveCurrentCallContext();
     return;
   }
@@ -1833,8 +1848,10 @@ subscribeToAuth(async (user) => {
 });
 
 window.addEventListener("storage", (event) => {
-  if (event.key === QUOTE_CONTEXT_STORAGE_KEY && event.newValue) {
-    pullQuoteContextFromStorage({ silent: true });
+  if (event.key === QUOTE_CONTEXT_STORAGE_KEY && event.newValue && !state.quoteModalOpen) {
+    // Intentionally do not auto-render while the quote modal is open.
+    // The calculator writes quote data frequently, and re-rendering here would
+    // constantly recreate the iframe and make it unusable.
   }
 });
 
