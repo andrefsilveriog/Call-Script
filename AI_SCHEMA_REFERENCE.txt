@@ -1,0 +1,83 @@
+Call Guide bulk-edit schema
+
+File format
+- Exported as a plain .txt file.
+- The contents use a YAML-style nested structure.
+- Keep ids stable if you want clean merges.
+
+Top level
+schema_version: 1
+workspace:
+  theme: light
+  groups:
+    - id: inbound
+      name: Inbound
+      icon: "📞"
+  call_types:
+    - id: inbound_website_has_quote
+      name: Website (Has Quote)
+      icon: "🌐"
+      description: |
+        Lead came from the website and already has a quote.
+      group_id: inbound
+      steps:
+        - id: contact_info
+          kind: main
+          special_type: standard
+          step_number: "01"
+          sidebar_label: Info
+          title: Contact Info
+          legend: |
+            Capture their information before the call gets deeper.
+          script: |
+            Can I get your first and last name?
+            What's the best email to send your quote?
+          tone_cue: |
+            Quick and natural.
+          parent_step_id: ""
+          next_step_id: property_details
+          key_points:
+            - Ask for first and last name.
+            - Confirm the best email.
+          branches:
+            - label: Info Resistance
+              color: decision
+              target_id: info_resistance
+          extra:
+            title: Notes
+            items:
+              - Use only if needed.
+          guarantees:
+            []
+          follow_up:
+            []
+
+Important fields
+- groups: top-level call categories shown on the home screen.
+- call_types: individual flows inside each group.
+- group_id: must match one of the group ids.
+- steps: the pages inside a call type.
+- kind: main, branch, or special.
+- special_type: standard, guarantees, or followup.
+- step_number: shown in the top step bar for main steps.
+- sidebar_label: short step label.
+- legend: the light blue guidance strip.
+- script: main script block.
+- tone_cue: optional coaching note.
+- parent_step_id: used by branch steps.
+- next_step_id: the default next button target.
+- branches: clickable branch buttons shown under the script.
+- extra: optional notes block.
+- guarantees: used by special_type = guarantees.
+- follow_up: used by special_type = followup.
+
+Import behavior
+- MERGE: updates matching call type ids and adds new call types/groups.
+- REPLACE: replaces the whole workspace.
+
+Safe editing rules for AI
+- Do not rename ids unless you want to create a new object or intentionally break a link.
+- When changing a branch target, make sure target_id points to a real step id in the same call type.
+- When changing next_step_id, make sure it points to a real step id in the same call type.
+- Keep step ids unique inside each call type.
+- Keep call type ids unique across the workspace.

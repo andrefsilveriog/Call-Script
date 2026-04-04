@@ -5,6 +5,7 @@ import {
   signUpWithEmail,
   signOutUser,
   saveWorkspace,
+  saveUserPreferences,
   seedWorkspaceIfEmpty,
 } from "./firebase-service.js";
 import { DEFAULT_GROUPS } from "./defaults.js";
@@ -29,6 +30,9 @@ const state = {
   authMode: "signin",
   authForm: { email: "", password: "" },
   notice: null,
+  settingsOpen: false,
+  settingsSaving: false,
+  settingsDraft: { repName: "", theme: "light" },
 };
 
 const BRANCH_TONES = {
@@ -49,8 +53,26 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#39;");
 }
 
+function personalizeText(value = "") {
+  const repName = (state.settingsOpen ? state.settingsDraft.repName : workspaceSource()?.repName) || state.workspace?.repName || "";
+  const firstName = repName.trim().split(/\s+/).filter(Boolean)[0] || repName.trim();
+  return String(value || "")
+    .replaceAll("{{rep_name}}", repName)
+    .replaceAll("{{rep_full_name}}", repName)
+    .replaceAll("{{rep_first_name}}", firstName);
+}
+
 function renderText(value = "") {
-  return escapeHtml(value).replaceAll("\n", "<br>");
+  return escapeHtml(personalizeText(value)).replaceAll("\n", "<br>");
+}
+
+function applyTheme(theme = "light") {
+  document.body.dataset.theme = theme === "dark" ? "dark" : "light";
+}
+
+function activeTheme() {
+  if (state.settingsOpen && state.settingsDraft.theme) return state.settingsDraft.theme;
+  return workspaceSource()?.theme || state.workspace?.theme || "light";
 }
 
 function deepClone(value) {
@@ -142,7 +164,7 @@ function normalizeWorkspace(workspace) {
     steps: sortByOrder(flow.steps || []).map((step, stepIndex) => normalizeStep(step, stepIndex)),
   }));
 
-  const result = { theme: "light", groups, flows };
+  const result = { theme: workspace?.theme || "light", repName: workspace?.repName || "", groups, flows };
   reindexWorkspace(result);
   return result;
 }
@@ -685,20 +707,21 @@ function homeScreen() {
   const groups = groupList();
   const activeGroup = groups.find((group) => group.id === state.activeGroupId) || groups[0];
   const flows = flowList().filter((flow) => flow.groupId === activeGroup?.id);
+  const repLabel = (state.workspace?.repName || "").trim();
 
   return `
     <div class="shell">
       <div class="utility-row">
         <div>
           <h1 class="home-title">Select call type</h1>
-          <div class="home-intro">Pick the call, then follow the steps across the top.</div>
+          <div class="home-intro">${repLabel ? `Signed in as ${escapeHtml(repLabel)}. ` : ""}Pick the call, then follow the steps across the top.</div>
         </div>
         <div></div>
         <div class="utility-actions">
           <button class="small-btn" data-action="export-workspace">Export .txt</button>
           <button class="small-btn" data-action="import-workspace">Import .txt</button>
           <input id="workspace-import" type="file" accept=".txt,.yaml,.yml,application/json,text/plain" class="hidden" />
-          <button class="small-btn" data-action="sign-out">Sign out</button>
+          <button class="small-btn" data-action="toggle-settings">Settings</button>
         </div>
       </div>
 
@@ -722,11 +745,40 @@ function homeScreen() {
           `).join("") || `<div class="empty-state">No call types in this group yet.</div>`}
         </div>
 
+        ${renderSettingsPanel()}
         ${state.editMode ? renderHomeBuilder() : ""}
         ${renderNotice()}
       </div>
 
       ${renderFab()}
+    </div>
+  `;
+}
+
+function renderSettingsPanel() {
+  if (!state.settingsOpen) return "";
+  return `
+    <div class="builder-card settings-card">
+      <div class="builder-title">Settings</div>
+      <div class="builder-grid two" style="margin-top:12px;">
+        <label>
+          <span>Sales rep name</span>
+          <input value="${escapeHtml(state.settingsDraft.repName || "")}" data-role="settings-field" data-field="repName" placeholder="Andre" />
+        </label>
+        <label>
+          <span>Appearance</span>
+          <select data-role="settings-field" data-field="theme">
+            <option value="light" ${state.settingsDraft.theme === "light" ? "selected" : ""}>Light</option>
+            <option value="dark" ${state.settingsDraft.theme === "dark" ? "selected" : ""}>Dark</option>
+          </select>
+        </label>
+      </div>
+      <div class="inline-actions" style="margin-top:12px;">
+        <button class="small-btn" data-action="save-settings" ${state.settingsSaving ? "disabled" : ""}>${state.settingsSaving ? "Saving…" : "Save settings"}</button>
+        <button class="ghost-btn" data-action="toggle-settings">Close</button>
+        <button class="warning-btn" data-action="sign-out">Sign out</button>
+      </div>
+      <div class="helper-text" style="margin-top:10px;">These settings are saved per logged-in user. Use {{rep_name}} or {{rep_first_name}} in your text files to personalize scripts.</div>
     </div>
   `;
 }
@@ -888,7 +940,7 @@ function renderKeyPoints(step) {
           <div class="inline-actions"><button class="small-btn" data-action="add-keypoint">Add key point</button></div>
         </div>
       ` : `
-        <ul class="keypoints-list">${step.keyPoints.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        <ul class="keypoints-list">${step.keyPoints.map((item) => `<li>${escapeHtml(personalizeText(item))}</li>`).join("")}</ul>
       `}
     </div>
   `;
@@ -927,8 +979,8 @@ function renderExtra(step) {
           </div>
         </div>
       ` : `
-        <span class="section-label">${escapeHtml(extra.title || "Notes")}</span>
-        <ul class="extra-list">${(extra.items || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        <span class="section-label">${escapeHtml(personalizeText(extra.title || "Notes"))}</span>
+        <ul class="extra-list">${(extra.items || []).map((item) => `<li>${escapeHtml(personalizeText(item))}</li>`).join("")}</ul>
       `}
     </div>
   `;
@@ -1035,7 +1087,6 @@ function flowScreen() {
         <div class="flow-topbar">
           <button class="home-btn" data-action="go-home">⌂</button>
           <div class="topbar-label">${escapeHtml(flow.name)}</div>
-          <div class="topbar-actions"><button class="small-btn" data-action="sign-out">Sign out</button></div>
         </div>
         <div class="empty-state">This call type has no steps yet.</div>
         ${renderFab()}
@@ -1058,9 +1109,6 @@ function flowScreen() {
               ${escapeHtml(item.num || "")}&nbsp;${escapeHtml(item.label || item.title)}
             </button>
           `).join("")}
-        </div>
-        <div class="topbar-actions">
-          <button class="small-btn" data-action="sign-out">Sign out</button>
         </div>
       </div>
 
@@ -1104,6 +1152,7 @@ function renderFab() {
 }
 
 function render() {
+  applyTheme(activeTheme());
   if (!state.authReady) {
     root.innerHTML = loadingScreen();
     return;
@@ -1126,6 +1175,8 @@ async function loadWorkspaceForUser(user) {
     render();
     const workspace = await seedWorkspaceIfEmpty(user.uid);
     state.workspace = normalizeWorkspace(workspace);
+    state.settingsDraft = { repName: state.workspace.repName || "", theme: state.workspace.theme || "light" };
+    state.settingsOpen = false;
     state.activeGroupId = state.workspace.groups[0]?.id || null;
     state.activeFlowId = state.workspace.flows[0]?.id || null;
     state.activeStepId = state.workspace.flows[0]?.steps?.[0]?.id || null;
@@ -1155,6 +1206,43 @@ function onClick(event) {
   if (action === "select-group") { state.activeGroupId = button.dataset.groupId; render(); return; }
   if (action === "open-flow") { selectFlow(button.dataset.flowId); return; }
   if (action === "go-step") { state.activeStepId = button.dataset.stepId; render(); return; }
+  if (action === "toggle-settings") {
+    state.settingsOpen = !state.settingsOpen;
+    if (state.settingsOpen) {
+      state.settingsDraft = {
+        repName: state.workspace?.repName || "",
+        theme: state.workspace?.theme || "light",
+      };
+    }
+    render();
+    return;
+  }
+  if (action === "save-settings") {
+    if (!state.user || state.settingsSaving) return;
+    state.settingsSaving = true;
+    render();
+    saveUserPreferences(state.user.uid, { repName: state.settingsDraft.repName, theme: state.settingsDraft.theme })
+      .then(() => {
+        if (state.workspace) {
+          state.workspace.repName = state.settingsDraft.repName || "";
+          state.workspace.theme = state.settingsDraft.theme || "light";
+        }
+        if (state.draft) {
+          state.draft.repName = state.settingsDraft.repName || "";
+          state.draft.theme = state.settingsDraft.theme || "light";
+        }
+        notify("Settings saved.", "success");
+      })
+      .catch((error) => {
+        console.error(error);
+        notify(error.message || "Could not save settings.", "error");
+      })
+      .finally(() => {
+        state.settingsSaving = false;
+        render();
+      });
+    return;
+  }
   if (action === "sign-out") {
     signOutUser().catch((error) => notify(error.message || "Could not sign out.", "error"));
     return;
@@ -1202,6 +1290,12 @@ function onInput(event) {
     state.authForm[target.name] = target.value;
     return;
   }
+  if (target.dataset.role === "settings-field") {
+    state.settingsDraft[target.dataset.field] = target.value;
+    if (target.dataset.field === "theme") render();
+    return;
+  }
+
   if (!state.editMode || !state.draft) return;
 
   if (target.dataset.role === "group-field") {
@@ -1343,6 +1437,8 @@ subscribeToAuth(async (user) => {
   if (!user) {
     state.workspace = null;
     state.workspaceLoading = false;
+    state.settingsOpen = false;
+    state.settingsDraft = { repName: "", theme: "light" };
     state.screen = "home";
     render();
     return;

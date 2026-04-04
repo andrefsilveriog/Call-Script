@@ -1,0 +1,1126 @@
+# Call Guide bulk-edit file
+# Edit with any AI or text editor, then import it back into the app.
+# Keep ids stable if you want updates to merge cleanly.
+schema_version: 1
+workspace:
+  theme: dark
+  groups:
+    - id: website
+      name: Website
+      icon: "🌐"
+    - id: inbound
+      name: Inbound
+      icon: "📞"
+    - id: outbound
+      name: Outbound
+      icon: "📤"
+    - id: voicemail
+      name: Voicemail
+      icon: "📬"
+    - id: gatekeeper
+      name: Gatekeeper
+      icon: "🤖"
+  call_types:
+    - id: website-lead
+      name: Website Lead
+      icon: "🌐"
+      description: |
+        Quote sent → call now
+      group_id: website
+      steps:
+        - id: s01
+          kind: main
+          special_type: standard
+          step_number: 01
+          sidebar_label: Open
+          title: Opening
+          legend: |
+            Take control immediately and earn permission to lead.
+          script: |
+            "Hi, this is Andre with Joy of Cleaning — how can I help you today?"
+            
+            → Listen to their response.
+            
+            "Absolutely. I'll just ask a few quick questions so I can give you an accurate estimate, okay?"
+          tone_cue: |
+            Warm and confident. Smile when you speak — they can hear it. You set the pace, not them.
+          parent_step_id: ""
+          next_step_id: s02
+          key_points:
+            - Greet with your name and company, then ask how you can help.
+            - Once they ask for a quote, ask permission to lead with qualifying questions.
+            - "Wait for their \"okay\" — that small yes gives you control of the call."
+            - "If they push early, seem rushed, or are vague — use branches below."
+          branches:
+            - label: Asked for price early
+              color: money
+              target_id: b01b
+            - label: Client sounds rushed
+              color: decision
+              target_id: b01c
+            - label: Not sure what they need
+              color: decision
+              target_id: b01d
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b01b
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Price Early
+          title: Price Too Early
+          legend: |
+            Answer briefly, tie price to scope, then regain control.
+          script: |
+            "Great question — it really depends on the size and condition of the home. I'll ask you a couple quick questions so I can give you an accurate number, okay?"
+          tone_cue: |
+            Steady and helpful — not defensive. You're solving, not dodging.
+          parent_step_id: s01
+          next_step_id: s02
+          key_points:
+            - Acknowledge the question immediately so they feel heard.
+            - "Anchor price to size and condition — never give a random number."
+            - Ask for permission to continue so the call stays structured.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b01c
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Rushed
+          title: Client Is Rushed
+          legend: |
+            Show respect for their time without giving up control.
+          script: |
+            "Absolutely — I'll keep this quick. I just need two or three details so I don't give you the wrong number."
+          tone_cue: |
+            Respect their pace, but don't rush YOUR process. Brief ≠ sloppy.
+          parent_step_id: s01
+          next_step_id: s02
+          key_points:
+            - "Acknowledge that they're busy — don't fight it."
+            - Tell them you only need two or three details.
+            - Move straight into the highest-value qualifying questions.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b01d
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Vague
+          title: Client Is Vague
+          legend: |
+            Make the call feel easy by promising a guided process.
+          script: |
+            "No problem — I'll make this easy. I'll ask a couple quick questions about the home and what you want cleaned, and then I'll guide you from there."
+          tone_cue: |
+            Calm and reassuring. They're unsure — your certainty is their anchor.
+          parent_step_id: s01
+          next_step_id: s02
+          key_points:
+            - "Remove pressure by telling them you'll guide them."
+            - Move from general to specific: contact info, property details, priorities.
+            - Confidence matters more than speed here.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s02
+          kind: main
+          special_type: standard
+          step_number: 02
+          sidebar_label: Info
+          title: Contact Info
+          legend: |
+            Capture their information before the call gets deeper.
+          script: |
+            "Can I get your first and last name?"
+            → "What's the best email to send your quote?"
+            → "And is this the best number to reach you?"
+          tone_cue: |
+            Quick and natural — make this feel like paperwork, not an interrogation.
+          parent_step_id: ""
+          next_step_id: s03
+          key_points:
+            - Ask for first and last name at the start of qualification.
+            - Get the best email so the quote has a destination.
+            - Confirm the best phone number while the conversation feels natural.
+            - If the call drops, you still own the lead.
+          branches:
+            - label: Info resistance
+              color: decision
+              target_id: b02a
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b02a
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Resistance
+          title: Info Resistance
+          legend: |
+            Keep the request practical, not intrusive.
+          script: |
+            "Totally understand — I just like to get your best contact info in case the call drops or I need to send the quote over. Then we'll keep moving."
+          tone_cue: |
+            Light and casual. Don't make it a big deal — because it isn't.
+          parent_step_id: s02
+          next_step_id: s03
+          key_points:
+            - Frame it as protection in case the call drops.
+            - Tie the email directly to the quote.
+            - "Get the info, then move on immediately — don't linger."
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s03
+          kind: main
+          special_type: standard
+          step_number: 03
+          sidebar_label: Details
+          title: Property Details
+          legend: |
+            Gather the details that make the price feel accurate and justified.
+          script: |
+            "I can see your house shows on Zillow as X sq ft, X bedroom and X baths — does that sound right?"
+            → "On a scale of 1–10, how dirty would you say it is? 1 is almost perfect, 10 needs a full reset."
+            → "When do you need the cleaning done — ASAP, or in the next week or two?"
+          tone_cue: |
+            Expert mode. You're diagnosing, not order-taking. Ask with authority.
+          parent_step_id: ""
+          next_step_id: s04
+          key_points:
+            - Look up the address on Zillow DURING the call for sq ft, beds, baths.
+            - Identify cleaning type: deep clean, move-in/out, post-construction, or maintenance.
+            - "Use the 1–10 dirt scale to validate scope and protect the price."
+            - "Ask the framing question: \"Maintenance cleaning or a full reset?\""
+          branches:
+            - label: "Don't know sq ft"
+              color: decision
+              target_id: b03b
+            - label: "\"Just regular cleaning\""
+              color: money
+              target_id: b03c
+            - label: "Skip deep clean → Ziah"
+              color: decision
+              target_id: b03d
+            - label: Budget / a la carte
+              color: money
+              target_id: b03e
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b03b
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Unknown Sq Ft
+          title: Unknown Details
+          legend: |
+            If they're unsure, simplify and keep the quote moving.
+          script: |
+            "That's okay — bedrooms, bathrooms, condition, and the areas that need the most attention are enough for me to size it out accurately."
+          tone_cue: |
+            Reassuring. You've done this hundreds of times — let that come through.
+          parent_step_id: s03
+          next_step_id: s04
+          key_points:
+            - "Don't stall the call because one detail is missing."
+            - Use bedrooms, bathrooms, condition, and pain points to size the job.
+            - Keep them talking about scope, not measurements.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b03c
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Regular Clean
+          title: "\"Just Regular Cleaning\""
+          legend: |
+            Validate the goal, position deep cleaning as step one.
+          script: |
+            "Got it — that's actually what most people are looking for long-term. What we've found is that the first cleaning usually needs a deeper reset before we can maintain it properly. So we typically start with a deep cleaning, and then from there we move into regular maintenance so it stays consistent."
+          tone_cue: |
+            Consultative, not salesy. You're educating, not convincing.
+          parent_step_id: s03
+          next_step_id: s04
+          key_points:
+            - "Validate their long-term goal — they're right about wanting maintenance."
+            - Position deep clean as a necessary first step, not an upsell.
+            - "Use \"what we've found\" language — experience, not pressure."
+          branches:
+            - label: "\"Don't need deep clean\""
+              color: decision
+              target_id: b03d
+            - label: "\"Something cheaper\""
+              color: money
+              target_id: b03e
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b03d
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Ziah Path
+          title: Skip Deep Cleaning
+          legend: |
+            Use the Ziah assessment path — don't argue.
+          script: |
+            "That's fair — and we can always confirm that. What we can do is have our field manager, Ziah, take a look and let you know if a deep cleaning is actually necessary or if we can go straight into maintenance. That way you're not paying for anything you don't need."
+          tone_cue: |
+            Collaborative. You're on their side. Ziah is the tiebreaker, not you.
+          parent_step_id: s03
+          next_step_id: s04
+          key_points:
+            - "Don't argue about whether they need a deep clean."
+            - Offer an in-person assessment through Ziah as a neutral expert.
+            - "Frame it as protection — so they don't pay for what they don't need."
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b03e
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: A La Carte
+          title: Budget Option
+          legend: |
+            Offer a la carte only after deep cleaning has been positioned.
+          script: |
+            "Got it — if you're looking to stay within a specific budget, we do have a more flexible option. We offer a la carte cleaning where we focus on priority areas. We set a timeframe — say 2 or 3 hours — and within that time we focus on whatever matters most. For 2 hours it's $120, for 3 hours it's $180."
+          tone_cue: |
+            Helpful, not defeated. You're offering a real solution, not a consolation prize.
+          parent_step_id: s03
+          next_step_id: s04
+          key_points:
+            - Frame a la carte as flexible, not lesser.
+            - Set a time box first, then define priorities inside that window.
+            - "You only charge for time actually spent — mention this as a safety net."
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s04
+          kind: main
+          special_type: standard
+          step_number: 04
+          sidebar_label: Discover
+          title: Light Discovery
+          legend: |
+            One quick question gives you the pain and priorities you need to close later.
+          script: |
+            "What made you decide to get a cleaning done now?"
+            
+            OR
+            
+            "What areas matter most to you?"
+          tone_cue: |
+            Listen more than you talk here. Their answer IS your closing argument later. Write it down.
+          parent_step_id: ""
+          next_step_id: s05
+          key_points:
+            - Ask what made them decide to get a cleaning done NOW.
+            - Or ask which areas matter most: kitchen, bathrooms, floors, reset.
+            - Use their answer later when you justify value and close the booking.
+            - Pick one question and keep it short.
+          branches:
+            []
+          extra:
+            title: Common Pain Points to Listen For
+            items:
+              - "\"I don't have time\" / \"My weekends are consumed\""
+              - "\"I'm overwhelmed\" / \"I'm embarrassed when people come over\""
+              - "\"We've tried others and weren't happy\" / \"They kept canceling\""
+              - "\"I need it done before [event]\" / \"Moving in/out\""
+              - "\"It's been months since a deep clean\""
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s05
+          kind: main
+          special_type: standard
+          step_number: 05
+          sidebar_label: Expect
+          title: Set Expectation
+          legend: |
+            Name the scope before you pause so the silence feels confident.
+          script: |
+            "Got it — based on what you told me, I'm going to put together an estimate for a [deep cleaning / move-in/move-out / post-construction clean]. Give me one second."
+          tone_cue: |
+            Calm confidence. This pause is earned — you've done the work to get here.
+          parent_step_id: ""
+          next_step_id: s06
+          key_points:
+            - "Don't go silent while you calculate — bridge the pause."
+            - Say the cleaning type out loud before the number lands.
+            - "\"Give me one second\" sounds controlled and structured."
+            - If they push for price again, use the price-early branch.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s06
+          kind: main
+          special_type: standard
+          step_number: 06
+          sidebar_label: Price
+          title: Price Delivery
+          legend: |
+            Never drop a bare number. Make it feel earned first.
+          script: |
+            "So this would take about X hours with a team of two, and for a full deep cleaning, you're looking at $X."
+          tone_cue: |
+            Deliver the price like you believe in it — because you do. No apology. No flinch.
+          parent_step_id: ""
+          next_step_id: s07
+          key_points:
+            - Lead with TIME: hours and team size.
+            - Name the SCOPE clearly: deep clean, move-in/out, post-construction.
+            - "State the PRICE clearly once — no hedging, no apology."
+            - PAUSE after the number. Let them react. Silence is your friend.
+          branches:
+            - label: Hesitates / quiet
+              color: money
+              target_id: b06hes
+            - label: "\"That's expensive\""
+              color: danger
+              target_id: b06exp
+            - label: Comparing prices
+              color: money
+              target_id: b06cmp
+            - label: Wants cheaper
+              color: money
+              target_id: b06chp
+            - label: "\"Can you do less?\""
+              color: money
+              target_id: b06neg
+            - label: "\"Why not hourly?\""
+              color: decision
+              target_id: b06hrl
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b06hes
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Hesitation
+          title: Price Hesitation
+          legend: |
+            Reassure without talking yourself out of the price.
+          script: |
+            "Totally fair — usually what people want to make sure of is that they're getting the right level of service. Based on the condition and the areas you mentioned, this is the level that gets it done right the first time."
+          tone_cue: |
+            Steady. Their silence isn't rejection — it's processing. Give them space.
+          parent_step_id: s06
+          next_step_id: s07
+          key_points:
+            - Treat hesitation like a need for clarity, not rejection.
+            - Reconnect the price to the condition and result.
+            - "Keep tone steady and consultative — don't rush to fill silence."
+          branches:
+            - label: Deploy Guarantees
+              color: success
+              target_id: guar
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b06exp
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Too Expensive
+          title: "\"That's Expensive\""
+          legend: |
+            Hold value with proof and risk reversal.
+          script: |
+            "I completely understand — and just to be transparent, we're not the cheapest option, but we really stand behind the quality. We have over 800 five-star reviews and we're the top-rated company in St. Pete and Tampa. And we offer a 100% satisfaction guarantee — if anything's not right, we fix it. If you're still not happy, you get your money back. That's how confident we are."
+          tone_cue: |
+            Calm and transparent — not defensive. You're explaining value, not justifying cost.
+          parent_step_id: s06
+          next_step_id: s07
+          key_points:
+            - Acknowledge concern without shrinking the offer.
+            - One social proof: 800+ five-star reviews, top-rated locally.
+            - One risk reversal: satisfaction guarantee + money back.
+            - Frame it as getting it done right the first time.
+          branches:
+            - label: Full Guarantee Stack
+              color: success
+              target_id: guar
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b06cmp
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Comparing
+          title: Comparing Prices
+          legend: |
+            Help them compare scope, not just the number.
+          script: |
+            "That makes sense — most people do. What I'd say is just make sure you're comparing the same level of service. Two quotes can look similar on price but be very different in scope, detail, and results."
+          tone_cue: |
+            Confident, not threatened. You've seen this before and the result speaks.
+          parent_step_id: s06
+          next_step_id: s07
+          key_points:
+            - "Validate that comparing is normal — don't get defensive."
+            - Make sure they compare the same service level.
+            - Point to detail, reliability, and outcome as differentiators.
+            - "\"What's more important — saving $50 or knowing it's handled right?\""
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b06chp
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Cheaper
+          title: Wants Cheaper
+          legend: |
+            Protect positioning, then offer scope adjustment.
+          script: |
+            "Totally fair — a lot of people look at a few options before deciding. The main difference usually comes down to detail and reliability. We can absolutely tailor the cleaning to focus on what matters most and adjust the scope if needed."
+          tone_cue: |
+            Understanding but firm on value. Flexibility on scope, not on standards.
+          parent_step_id: s06
+          next_step_id: s07
+          key_points:
+            - Validate the budget concern first.
+            - Reframe difference as scope, detail, reliability.
+            - "Offer a narrower version — the a la carte path."
+            - Only discount scope, never quality.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b06neg
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Negotiate
+          title: "\"Can You Do It For Less?\""
+          legend: |
+            Empathize → Reframe → Lead. Never defend — reaffirm value.
+          script: |
+            "I appreciate you asking. Here's the thing — I could lower the price, but I'd have to remove things to make that work. I could take out the inside of appliances, skip the baseboards, or cut the detail work.
+            
+            But then you wouldn't be getting the full experience — the reason people hire us.
+            
+            Would you rather have the full service where everything's handled perfectly, or would you prefer I customize a lighter package?"
+          tone_cue: |
+            No apology. You're being transparent about what the price buys.
+          parent_step_id: s06
+          next_step_id: s07
+          key_points:
+            - "Never just say \"no\" — show what would be removed."
+            - "Make the trade-off visible: lower price = less service."
+            - Let them choose: full experience or customized lighter package.
+            - "\"What's your budget? I'll tell you what we can prioritize.\""
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b06hrl
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: "Why Hourly?"
+          title: "\"Why Not Hourly?\""
+          legend: |
+            Turn a question into a selling point.
+          script: |
+            "Good question — it's different from what you might be used to. We used to charge hourly, and here's what we found: when you charge by the hour, the cleaner's incentive is to work fast to get to the next job. Rushing, cutting corners, 'good enough' work.
+            
+            We price based on your home's size and condition — not time. So our team's only focus is doing it RIGHT, not fast. You get better results and don't feel nickel-and-dimed."
+          tone_cue: |
+            Educational, not defensive. You're sharing an insight, not arguing.
+          parent_step_id: s06
+          next_step_id: s07
+          key_points:
+            - "Validate their question — it IS different."
+            - Explain the perverse incentive of hourly (rush to finish).
+            - Position flat-rate as better for client: quality over speed.
+            - "End with: \"Does that make sense?\""
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s07
+          kind: main
+          special_type: standard
+          step_number: 07
+          sidebar_label: Value
+          title: Value Snapshot
+          legend: |
+            Keep it short, concrete, and outcome-based.
+          script: |
+            "That includes a full top-to-bottom service — kitchen, bathrooms, baseboards, floors, surfaces — everything brought back to the condition you need."
+          tone_cue: |
+            Confident brevity. You've already built the value — now land the plane.
+          parent_step_id: ""
+          next_step_id: s08
+          key_points:
+            - "Don't read the full checklist — name the key zones."
+            - "Kitchen, bathrooms, baseboards, floors, surfaces — that's enough."
+            - "End on a result phrase: \"reset condition\" or \"the way you want it.\""
+            - "If you feel yourself listing more, stop. Short = confident."
+          branches:
+            - label: Deploy Guarantees (if needed)
+              color: success
+              target_id: guar
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s08
+          kind: main
+          special_type: standard
+          step_number: 08
+          sidebar_label: Close
+          title: Transition to Close
+          legend: |
+            Move the decision from whether to book to when to book.
+          script: |
+            "Right now I have availability at 9 AM sharp on [Day, Date]. Would that work for you?"
+          tone_cue: |
+            Assume the sale. Your tone should say "this is happening" — not "what do you think?"
+          parent_step_id: ""
+          next_step_id: s09
+          key_points:
+            - "Offer a SPECIFIC day and time — vague offers feel less real."
+            - Ask WHEN they want to book, not IF.
+            - If they hesitate, use the objection branches below.
+            - "Assumptive language: \"When we get started\" not \"If you decide to.\""
+          branches:
+            - label: Need to think
+              color: money
+              target_id: b08thk
+            - label: Talk to spouse
+              color: decision
+              target_id: b08spo
+            - label: Found cheaper
+              color: danger
+              target_id: b08fch
+            - label: Quality concern
+              color: decision
+              target_id: b08qua
+            - label: Strangers concern
+              color: decision
+              target_id: b08str
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b08thk
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Think
+          title: "\"I Need to Think\""
+          legend: |
+            Surface the real hesitation without sounding pushy.
+          script: |
+            "No problem at all — I'd never want you to feel rushed. Can I ask — what specifically are you thinking through? Is it the investment, the timing, or whether we're the right fit?"
+          tone_cue: |
+            Calm and curious. You're a detective here, not a closer.
+          parent_step_id: s08
+          next_step_id: s09
+          key_points:
+            - "Don't chase with discounts or rambling."
+            - Identify the REAL objection: price, timing, trust, or scope.
+            - Route to the matching branch once they tell you.
+            - If still unsure: send everything in writing, follow up in 1-2 days.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b08spo
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Spouse
+          title: "\"Talk to My Spouse\""
+          legend: |
+            Empathize → Surface real concern → Offer follow-up path.
+          script: |
+            "Of course — totally understand. It's your home together, so you should both be on board.
+            
+            Can I ask — what do you think they'll be most concerned about? Is it the investment, the scheduling, or just making sure we're trustworthy?"
+            
+            → After they answer:
+            "Got it. I'll email you everything so you can review together — pricing, what's included, the guarantees. But I want to mention, we only have a few spots left this month, so I'd recommend circling back soon."
+          tone_cue: |
+            Respectful and understanding. No pressure — just smart follow-through.
+          parent_step_id: s08
+          next_step_id: follow
+          key_points:
+            - "They'll usually reveal the REAL objection when you ask about spouse's concern."
+            - Send everything in writing so they have ammo to convince their partner.
+            - "Light urgency: limited spots. Don't fake it — use real availability."
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b08fch
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Cheaper
+          title: "\"Found Someone Cheaper\""
+          legend: |
+            Empathize → Flip with curiosity → Lead to value.
+          script: |
+            "I appreciate you being honest. Can I ask — if they're cheaper, what made you reach out to us instead of just booking with them?"
+            
+            → Listen. They'll reveal: trust, quality, consistency.
+            
+            "Right — and that's exactly why we charge what we do. You're paying for reliability, background checks, consistency, and guarantees. If price is the only thing that matters, we're probably not the right fit. But if you want it done right — that's what we do."
+          tone_cue: |
+            Curious, not competitive. Let them talk themselves into the answer.
+          parent_step_id: s08
+          next_step_id: s09
+          key_points:
+            - "The curiosity question is GOLD — they sell themselves on you."
+            - They called you for a reason despite the cheaper option. Find it.
+            - "Don't trash the competitor. Let the comparison speak."
+            - "\"What's more important — saving $50 or knowing it's handled right?\""
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b08qua
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Quality
+          title: "\"What If I Don't Like It?\""
+          legend: |
+            Lead with the Happiness Promise.
+          script: |
+            "That's a fair concern — you don't know us yet. That's exactly why we offer the Happiness Promise. If you're not thrilled — for any reason — we come back within 24 hours and make it right at no charge. And if you're still not happy, you don't pay.
+            
+            We have 800+ five-star reviews because we don't leave until it's right."
+          tone_cue: |
+            Empathetic and confident. Their concern is valid — your answer is rock solid.
+          parent_step_id: s08
+          next_step_id: s09
+          key_points:
+            - "Validate — it's reasonable for a first-time client."
+            - Lead with the guarantee, then back it with social proof.
+            - "End with: \"Does that put your mind at ease?\""
+          branches:
+            - label: Full Guarantee Stack
+              color: success
+              target_id: guar
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b08str
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Strangers
+          title: "\"Worried About Strangers\""
+          legend: |
+            Acknowledge, then stack trust signals.
+          script: |
+            "Totally understand — it's your home, your safe space. That's a big deal.
+            
+            Every person on our team goes through a full background check before they ever step foot in a client's home. We carry full insurance and bonding — liability and workers' comp.
+            
+            And once you have your first cleaning, you get the same team every time when possible — so it's not strangers anymore, it's familiar faces who know your home."
+          tone_cue: |
+            Warm and serious. This isn't a sales moment — it's a trust moment.
+          parent_step_id: s08
+          next_step_id: s09
+          key_points:
+            - "Validate — this is emotional, not logical. Respect that."
+            - Stack trust: background checks, insurance, bonding.
+            - "The \"same team\" promise is powerful for this objection."
+            - "End with: \"Does that help?\""
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s09
+          kind: main
+          special_type: standard
+          step_number: 09
+          sidebar_label: Schedule
+          title: Scheduling
+          legend: |
+            Offer two real options so the decision feels easy.
+          script: |
+            "I have [Day] at [Time], or I could do [Day] [morning/afternoon] — which works better for you?"
+          tone_cue: |
+            Efficient and clear. This is logistics, not selling. Keep the momentum.
+          parent_step_id: ""
+          next_step_id: s10
+          key_points:
+            - "Give TWO specific choices — not open-ended."
+            - Guide toward what works for YOUR schedule.
+            - Confirm the exact day and time before deposit.
+            - "\"Perfect, so we're set for [Day] at [Time].\""
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s10
+          kind: main
+          special_type: standard
+          step_number: 10
+          sidebar_label: Deposit
+          title: Recap + Deposit
+          legend: |
+            Confirm the booking, then ask for the 30% deposit.
+          script: |
+            "Alright — we're set for [Day] at [Time] for the [cleaning type]. To lock that in, we just take a 30% deposit, otherwise I can't guarantee the spot.
+            
+            I can help you with that now, or you can do it through the quote I'll send. Which works?"
+          tone_cue: |
+            Matter-of-fact. The deposit is standard — treat it that way.
+          parent_step_id: ""
+          next_step_id: s11
+          key_points:
+            - "Recap day, time, and cleaning type OUT LOUD — makes it feel real."
+            - "Frame deposit as \"just 30%\" to soften the ask."
+            - Offer two payment paths: now with you, or through the quote.
+            - "Cash option: 5% discount if they pay cash after."
+          branches:
+            - label: Deposit resistance
+              color: money
+              target_id: b10a
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: b10a
+          kind: branch
+          special_type: standard
+          step_number: ""
+          sidebar_label: Resistance
+          title: Deposit Resistance
+          legend: |
+            Reduce friction without giving up the requirement.
+          script: |
+            "Absolutely — the deposit just locks the time so the slot doesn't get taken. I can help you now, or I send the quote and you handle it there. As soon as it's in, the booking is confirmed."
+          tone_cue: |
+            Firm but easy. The deposit isn't negotiable — but the HOW is flexible.
+          parent_step_id: s10
+          next_step_id: s11
+          key_points:
+            - Keep deposit positioned as standard, not personal.
+            - Tie it to holding the calendar slot.
+            - Same two paths: now or through the quote.
+            - "\"I totally understand. I'll send the quote and you can take care of it when ready.\""
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: s11
+          kind: main
+          special_type: standard
+          step_number: 11
+          sidebar_label: Setup
+          title: Post-Close Setup
+          legend: |
+            Tighten the experience and quietly create add-on space.
+          script: |
+            "Perfect — to make sure everything goes smoothly on the day of the cleaning, I'll go over a few quick details with you."
+          tone_cue: |
+            Thorough but quick. This is service, not selling. They already bought.
+          parent_step_id: ""
+          next_step_id: ""
+          key_points:
+            - Parking: driveway, street, guest parking, or door-entry instructions.
+            - "Access: will they be home, lockbox, or door code?"
+            - "Trash: trash cans or dumpster nearby?"
+            - "Flooring: hardwood, tile, vinyl, carpet?"
+            - Confirm bedrooms and bathrooms again.
+            - "Pets: type, size, will they be home?"
+            - "Focus areas: any zones needing extra attention?"
+            - "Add-ons: oven, fridge, cabinets, drawers, interior windows?"
+          branches:
+            []
+          extra:
+            title: Common Add-Ons (Reference)
+            items:
+              - "Interior windows — $10/window (typically $80–120 total)"
+              - "Inside refrigerator — emptied, wiped, sanitized ($70)"
+              - "Inside oven — racks, walls, glass, degreased ($60)"
+              - "Interior glass doors — streak-free ($30 each)"
+              - "Interior cabinets — emptied and wiped ($80)"
+              - "Laundry — one cycle washed, dried, folded ($35)"
+          guarantees:
+            []
+          follow_up:
+            []
+        - id: guar
+          kind: special
+          special_type: standard
+          step_number: G
+          sidebar_label: Guarantees
+          title: Guarantee Stack
+          legend: |
+            Deploy these when you need risk reversal. Use 1, 2, or all 3.
+          script: |
+            
+          tone_cue: |
+            Let each guarantee land. Pause between them. End with: "Make sense?"
+          parent_step_id: ""
+          next_step_id: ""
+          key_points:
+            []
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            - name: THE HAPPINESS PROMISE
+              script: |
+                "If we finish and you're not thrilled — for any reason — we come back within 24 hours and make it right. No charge. No questions. You don't pay for something you're not happy with."
+            - name: DAMAGE PROTECTION PLEDGE
+              script: |
+                "We carry full insurance and bonding. If anything gets damaged — and in seven years, it's happened twice — we repair or replace it at full value. You're covered up to $1 million."
+            - name: ON-TIME GUARANTEE
+              script: |
+                "If we're more than 15 minutes late, that day's cleaning is 50% off. If we no-show — which has never happened — it's free. You have zero risk."
+          follow_up:
+            []
+        - id: follow
+          kind: special
+          special_type: standard
+          step_number: F
+          sidebar_label: Follow-Up
+          title: Follow-Up Cadence
+          legend: |
+            When they don't book — your 3-day recovery plan.
+          script: |
+            
+          tone_cue: |
+            Each voicemail should sound like a real person, not a script. Smile when you record.
+          parent_step_id: ""
+          next_step_id: ""
+          key_points:
+            []
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            - day: "DAY 1 — Same day"
+              content: |
+                Call #1 (ASAP) — Full script. If voicemail:
+                "Hi [Name], this is Andre with Joy of Cleaning. I'd love to learn more about your cleaning needs and how we can help you get your time back. Give me a call at [number]."
+                Call #2 (later same day) — No voicemail.
+            - day: "DAY 2 — Next day"
+              content: |
+                Call #3 (morning) — Voicemail:
+                "Hi [Name], following up from Joy of Cleaning. I want to make sure I can answer any questions and get you on the schedule before we fill up this month. Call me at [number]."
+                Call #4 (afternoon) — No voicemail.
+            - day: "DAY 3 — Final attempt"
+              content: |
+                Call #5 (morning) — Final voicemail:
+                "Hi [Name], this is Andre from Joy of Cleaning one last time. I don't want to be a pest, but I also don't want you to miss out. If you're still interested, call me at [number]. If not, totally fine."
+                After Day 3: Stop manual calls. Let CRM take over.
+        - id: recur
+          kind: special
+          special_type: standard
+          step_number: R
+          sidebar_label: Recurring
+          title: Post-Clean Conversion
+          legend: |
+            Call 1-2 days after the deep clean to convert to recurring.
+          script: |
+            "Hi [Name], this is Andre from Joy of Cleaning. I just wanted to check in — how did everything go with your deep clean on [Day]?"
+            
+            → Let them respond (usually positive).
+            
+            "That's awesome. A lot of our clients who start with a deep clean love how it feels, and then they set up recurring service — usually bi-weekly — so their home stays in that 'just cleaned' state.
+            
+            Based on your home, bi-weekly would be around $[XXX], same team so they know your space.
+            
+            Does that sound like something you'd want to set up?"
+          tone_cue: |
+            Warm check-in energy, not sales call energy. They already trust you.
+          parent_step_id: ""
+          next_step_id: ""
+          key_points:
+            - "If YES: \"Perfect. What day of the week works best?\""
+            - "If NOT YET: \"No problem. After six cleanings, your 7th is free.\""
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+    - id: inbound-no-quote
+      name: Inbound (No Quote)
+      icon: "📞"
+      description: |
+        Asking for quote
+      group_id: inbound
+      steps:
+        []
+    - id: inbound-has-quote
+      name: Inbound (Has Quote)
+      icon: "📋"
+      description: |
+        Questions about quote
+      group_id: inbound
+      steps:
+        []
+    - id: outbound-post-quote
+      name: Follow-Up (Post-Quote)
+      icon: "📤"
+      description: |
+        Right after sending
+      group_id: outbound
+      steps:
+        []
+    - id: outbound-no-reply
+      name: Follow-Up (No Reply)
+      icon: "🔄"
+      description: |
+        No response yet
+      group_id: outbound
+      steps:
+        []
+    - id: voicemail
+      name: Voicemail Scripts
+      icon: "📱"
+      description: |
+        Leave a message
+      group_id: voicemail
+      steps:
+        []
+    - id: gatekeeper
+      name: Electronic Secretary
+      icon: "🤖"
+      description: |
+        Get through the gate
+      group_id: gatekeeper
+      steps:
+        []

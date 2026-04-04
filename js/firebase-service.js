@@ -16,6 +16,7 @@ import {
   orderBy,
   writeBatch,
   serverTimestamp,
+  setDoc,
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 import { firebaseConfig, isFirebaseConfigured } from "./firebase-config.js";
@@ -160,7 +161,8 @@ export async function loadWorkspace(uid) {
   }
 
   return {
-    theme: settings.theme || "dark",
+    theme: settings.theme || "light",
+    repName: settings.repName || "",
     groups,
     flows,
   };
@@ -175,6 +177,16 @@ export async function seedWorkspaceIfEmpty(uid) {
   const seed = buildSeedWorkspace();
   await saveWorkspace(uid, seed);
   return loadWorkspace(uid);
+}
+
+
+export async function saveUserPreferences(uid, preferences = {}) {
+  ensureFirebase();
+  const payload = { updatedAt: serverTimestamp() };
+  if (Object.prototype.hasOwnProperty.call(preferences, "theme")) payload.theme = preferences.theme || "light";
+  if (Object.prototype.hasOwnProperty.call(preferences, "repName")) payload.repName = preferences.repName || "";
+  await setDoc(settingsRef(uid), payload, { merge: true });
+  return true;
 }
 
 export async function saveWorkspace(uid, workspace) {
@@ -194,7 +206,8 @@ export async function saveWorkspace(uid, workspace) {
     type: "set",
     ref: settingsRef(uid),
     data: {
-      theme: workspace.theme || "dark",
+      theme: workspace.theme || "light",
+      repName: workspace.repName || "",
       groups,
       updatedAt: serverTimestamp(),
     },

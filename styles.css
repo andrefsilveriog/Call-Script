@@ -24,6 +24,27 @@ body {
   color: var(--ink);
   font-family: Inter, system-ui, sans-serif;
 }
+
+body[data-theme="dark"] {
+  --page: #0f1726;
+  --surface: #182335;
+  --surface-2: #223149;
+  --surface-3: #2b3b55;
+  --ink: #edf3ff;
+  --ink-2: #c0cde0;
+  --ink-3: #8ea1bb;
+  --navy: #09182f;
+  --navy-2: #102447;
+  --line: #324760;
+  --line-2: #425b78;
+  --teal: #21cfc7;
+  --teal-2: #1fbdb6;
+  --danger: #ff9a9a;
+  --shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
+  --field-bg: #101a2c;
+}
+
+:root { --field-bg: var(--white); }
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 textarea { resize: vertical; }
@@ -40,10 +61,19 @@ a { color: inherit; }
 .utility-row,
 .flow-topbar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.utility-row {
+  grid-template-columns: auto 1fr auto;
+}
+
+.flow-topbar {
+  grid-template-columns: auto 1fr;
 }
 
 .utility-actions,
@@ -106,7 +136,7 @@ a { color: inherit; }
 
 .secondary-btn,
 .branch-btn {
-  background: var(--white);
+  background: var(--field-bg);
 }
 
 .warning-btn {
@@ -134,7 +164,7 @@ a { color: inherit; }
 }
 
 .step-tab.active {
-  background: var(--white);
+  background: var(--field-bg);
   color: var(--ink);
 }
 
@@ -241,7 +271,7 @@ a { color: inherit; }
   font-size: 20px;
   line-height: 1.45;
   color: #1064a6;
-  font-style: italic;
+  font-style: normal;
 }
 
 .script-card {
@@ -270,7 +300,7 @@ a { color: inherit; }
 .script-text {
   font-size: 22px;
   line-height: 1.62;
-  font-style: italic;
+  font-style: normal;
   white-space: pre-wrap;
 }
 
@@ -413,7 +443,7 @@ textarea,
 select {
   width: 100%;
   border: 1px solid var(--line);
-  background: var(--white);
+  background: var(--field-bg);
   color: var(--ink);
   border-radius: 8px;
   padding: 11px 12px;
@@ -451,7 +481,7 @@ select:focus {
 .select-card {
   display: grid;
   gap: 8px;
-  background: var(--white);
+  background: var(--field-bg);
   text-align: left;
 }
 
@@ -614,4 +644,32 @@ select:focus {
   .item-row > *,
   .timeline-row > *,
   .guarantee-row > * { grid-column: auto !important; }
+}
+
+
+.settings-card {
+  max-width: 760px;
+}
+
+body[data-theme="dark"] .script-card {
+  border-color: #25406d;
+}
+
+body[data-theme="dark"] .ribbon {
+  background: #14273b;
+  border-color: #284861;
+}
+
+body[data-theme="dark"] .ribbon-text {
+  color: #9fd5ff;
+}
+
+body[data-theme="dark"] .select-card span,
+body[data-theme="dark"] .home-intro,
+body[data-theme="dark"] .helper-text,
+body[data-theme="dark"] .notice,
+body[data-theme="dark"] .muted,
+body[data-theme="dark"] .auth-status,
+body[data-theme="dark"] .auth-card p {
+  color: var(--ink-2);
 }

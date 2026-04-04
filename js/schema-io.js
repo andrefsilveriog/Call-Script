@@ -116,6 +116,7 @@ export function serializeWorkspaceToText(workspace) {
   ];
 
   writeScalar(lines, 2, "theme", workspace?.theme || "light");
+  writeScalar(lines, 2, "rep_name", workspace?.repName || "");
   writeObjectArray(lines, 2, "groups", workspace?.groups || [], writeGroup);
   writeObjectArray(lines, 2, "call_types", workspace?.flows || [], writeCallType);
   lines.push("");
@@ -365,6 +366,7 @@ function schemaToWorkspace(schema) {
 
   return {
     theme: safeString(workspaceRoot.theme || "light") || "light",
+    repName: safeString(workspaceRoot.rep_name || workspaceRoot.repName || ""),
     groups,
     flows,
   };
@@ -426,5 +428,6 @@ export function mergeWorkspaceByIds(baseWorkspace, importedWorkspace) {
   base.flows = Array.from(flowMap.values());
 
   if (imported.theme) base.theme = imported.theme;
+  if (Object.prototype.hasOwnProperty.call(imported, "repName")) base.repName = imported.repName || "";
   return base;
 }
