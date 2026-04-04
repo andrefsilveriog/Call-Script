@@ -13,7 +13,7 @@ import {
 const root = document.getElementById("app");
 const importInputId = "workspace-import-input";
 const LOCAL_VERSION_KEY = "call-script-ui-version";
-const UI_VERSION = "2.0.0";
+const UI_VERSION = "2.0.1";
 
 const state = {
   user: null,
@@ -1552,7 +1552,7 @@ root.addEventListener("click", async (event) => {
 
   const actionTarget = event.target.closest("[data-action]");
   if (!actionTarget) {
-    if (!event.target.closest(".nav-group")) {
+    if (state.openGroupId && !event.target.closest(".nav-group")) {
       state.openGroupId = null;
       render();
     }
