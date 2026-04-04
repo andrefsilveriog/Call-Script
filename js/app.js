@@ -1256,8 +1256,7 @@ function renderScript(step) {
       <span class="script-label">Script</span>
       ${state.editMode
         ? `<textarea data-role="step-field" data-field="script">${escapeHtml(step.script || "")}</textarea>`
-        : `<div class="script-text script-lines">${String(step.script || "").split("
-").map((line) => renderScriptLineWithFields(line)).join("")}</div>`}
+        : `<div class="script-text script-lines">${String(step.script || "").split("\n").map((line) => renderScriptLineWithFields(line)).join("")}</div>`}
     </div>
   `;
 }
