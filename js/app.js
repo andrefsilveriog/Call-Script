@@ -33,6 +33,7 @@ const state = {
   settingsOpen: false,
   settingsSaving: false,
   settingsDraft: { repName: "", theme: "light" },
+  currentCall: blankCurrentCall(),
 };
 
 const BRANCH_TONES = {
@@ -43,6 +44,136 @@ const BRANCH_TONES = {
   back: "#edf2f7",
   success: "#ebfbf7",
 };
+
+
+const CURRENT_CALL_STORAGE_PREFIX = "call-guide-current-call:";
+const QUOTE_CONTEXT_STORAGE_KEY = "joc-quote-context-v1";
+
+function blankCurrentCall() {
+  return {
+    clientName: "",
+    clientEmail: "",
+    clientPhone: "",
+    clientAddress: "",
+    sqft: "",
+    beds: "",
+    baths: "",
+    serviceType: "",
+    dirtLevel: "",
+    oneTimePrice: "",
+    weeklyPrice: "",
+    biweeklyPrice: "",
+    monthlyPrice: "",
+    addOnSummary: "",
+    quoteUpdatedAt: "",
+  };
+}
+
+function currentCallStorageKey(uid = state.user?.uid) {
+  return uid ? `${CURRENT_CALL_STORAGE_PREFIX}${uid}` : null;
+}
+
+function loadCurrentCallContext(uid = state.user?.uid) {
+  const key = currentCallStorageKey(uid);
+  if (!key) return blankCurrentCall();
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return blankCurrentCall();
+    const parsed = JSON.parse(raw);
+    return { ...blankCurrentCall(), ...(parsed && typeof parsed === "object" ? parsed : {}) };
+  } catch (error) {
+    console.error(error);
+    return blankCurrentCall();
+  }
+}
+
+function saveCurrentCallContext() {
+  const key = currentCallStorageKey();
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(state.currentCall || blankCurrentCall()));
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function clearCurrentCallContext() {
+  state.currentCall = blankCurrentCall();
+  const key = currentCallStorageKey();
+  if (key) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+}
+
+function callContextSummary() {
+  const data = state.currentCall || blankCurrentCall();
+  return [
+    data.clientName ? `Client: ${data.clientName}` : null,
+    data.clientEmail ? `Email: ${data.clientEmail}` : null,
+    data.clientPhone ? `Phone: ${data.clientPhone}` : null,
+    data.clientAddress ? `Address: ${data.clientAddress}` : null,
+    data.serviceType ? `Service: ${data.serviceType}` : null,
+    data.oneTimePrice ? `One-time: ${data.oneTimePrice}` : null,
+  ].filter(Boolean).join("\n");
+}
+
+function openQuoteWorkspace() {
+  saveCurrentCallContext();
+  const params = new URLSearchParams();
+  const data = state.currentCall || blankCurrentCall();
+  const repName = (workspaceSource()?.repName || state.workspace?.repName || "").trim();
+  if (data.clientName) params.set("client_name", data.clientName);
+  if (data.clientEmail) params.set("client_email", data.clientEmail);
+  if (data.clientPhone) params.set("client_phone", data.clientPhone);
+  if (data.clientAddress) params.set("address", data.clientAddress);
+  if (repName) params.set("rep_name", repName);
+  const url = `./quote-workspace.html${params.toString() ? `?${params.toString()}` : ""}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function pullQuoteContextFromStorage() {
+  try {
+    const raw = window.localStorage.getItem(QUOTE_CONTEXT_STORAGE_KEY);
+    if (!raw) {
+      notify("No quote data found yet.", "error");
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      notify("Quote data is invalid.", "error");
+      return;
+    }
+    const current = state.currentCall || blankCurrentCall();
+    state.currentCall = {
+      ...current,
+      clientName: parsed.clientName || current.clientName || "",
+      clientEmail: parsed.clientEmail || current.clientEmail || "",
+      clientPhone: parsed.clientPhone || current.clientPhone || "",
+      clientAddress: parsed.address || current.clientAddress || "",
+      sqft: parsed.sqft || "",
+      beds: parsed.beds || "",
+      baths: parsed.baths || "",
+      serviceType: parsed.serviceType || "",
+      dirtLevel: parsed.dirtLevel || "",
+      oneTimePrice: parsed.oneTimePrice || "",
+      weeklyPrice: parsed.weeklyPrice || "",
+      biweeklyPrice: parsed.biweeklyPrice || "",
+      monthlyPrice: parsed.monthlyPrice || "",
+      addOnSummary: parsed.addOnSummary || "",
+      quoteUpdatedAt: parsed.updatedAt ? new Date(parsed.updatedAt).toLocaleString() : "",
+    };
+    saveCurrentCallContext();
+    notify("Quote data loaded into this call.", "success");
+    render();
+  } catch (error) {
+    console.error(error);
+    notify("Could not load quote data.", "error");
+  }
+}
 
 function escapeHtml(value = "") {
   return String(value)
@@ -55,11 +186,39 @@ function escapeHtml(value = "") {
 
 function personalizeText(value = "") {
   const repName = (state.settingsOpen ? state.settingsDraft.repName : workspaceSource()?.repName) || state.workspace?.repName || "";
-  const firstName = repName.trim().split(/\s+/).filter(Boolean)[0] || repName.trim();
-  return String(value || "")
-    .replaceAll("{{rep_name}}", repName)
-    .replaceAll("{{rep_full_name}}", repName)
-    .replaceAll("{{rep_first_name}}", firstName);
+  const repFirstName = repName.trim().split(/\s+/).filter(Boolean)[0] || repName.trim();
+  const call = state.currentCall || blankCurrentCall();
+  const clientName = (call.clientName || "").trim();
+  const nameParts = clientName ? clientName.split(/\s+/).filter(Boolean) : [];
+  const clientFirstName = nameParts[0] || "";
+  const clientLastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+  const replacements = {
+    "{{rep_name}}": repName,
+    "{{rep_full_name}}": repName,
+    "{{rep_first_name}}": repFirstName,
+    "{{client_name}}": clientName,
+    "{{client_full_name}}": clientName,
+    "{{client_first_name}}": clientFirstName,
+    "{{client_last_name}}": clientLastName,
+    "{{client_email}}": call.clientEmail || "",
+    "{{client_phone}}": call.clientPhone || "",
+    "{{client_address}}": call.clientAddress || "",
+    "{{sqft}}": call.sqft || "",
+    "{{beds}}": call.beds || "",
+    "{{baths}}": call.baths || "",
+    "{{service_type}}": call.serviceType || "",
+    "{{dirt_level}}": call.dirtLevel || "",
+    "{{one_time_price}}": call.oneTimePrice || "",
+    "{{weekly_price}}": call.weeklyPrice || "",
+    "{{biweekly_price}}": call.biweeklyPrice || "",
+    "{{monthly_price}}": call.monthlyPrice || "",
+    "{{add_on_summary}}": call.addOnSummary || "",
+  };
+  let output = String(value || "");
+  for (const [token, replacement] of Object.entries(replacements)) {
+    output = output.replaceAll(token, replacement);
+  }
+  return output;
 }
 
 function renderText(value = "") {
@@ -725,6 +884,8 @@ function homeScreen() {
         </div>
       </div>
 
+      ${renderCurrentCallPanel()}
+
       <div class="home-grid">
         <div class="home-card">
           <div class="group-tabs">
@@ -755,6 +916,79 @@ function homeScreen() {
   `;
 }
 
+
+function renderCurrentCallPanel() {
+  const call = state.currentCall || blankCurrentCall();
+  const quoteFacts = [
+    call.serviceType ? `Service: ${call.serviceType}` : null,
+    call.sqft ? `Sqft: ${call.sqft}` : null,
+    call.beds ? `Beds: ${call.beds}` : null,
+    call.baths ? `Baths: ${call.baths}` : null,
+    call.dirtLevel ? `Dirt: ${call.dirtLevel}` : null,
+    call.oneTimePrice ? `One-time: ${call.oneTimePrice}` : null,
+    call.biweeklyPrice ? `Biweekly: ${call.biweeklyPrice}` : null,
+    call.addOnSummary ? `Add-ons: ${call.addOnSummary}` : null,
+  ].filter(Boolean);
+
+  return `
+    <div class="current-call-card">
+      <div class="current-call-head">
+        <div>
+          <div class="builder-title">Current call</div>
+          <div class="helper-text">This is temporary call context for live reference and variable replacement. It is not a client database.</div>
+        </div>
+        <div class="inline-actions">
+          <button class="small-btn" data-action="open-quote-workspace">Open quote tool</button>
+          <button class="small-btn" data-action="pull-quote-context">Pull quote data</button>
+          <button class="ghost-btn" data-action="copy-call-summary">Copy summary</button>
+          <button class="warning-btn" data-action="clear-current-call">Clear</button>
+        </div>
+      </div>
+
+      <div class="builder-grid four current-call-grid">
+        <label>
+          <span>Client name</span>
+          <input value="${escapeHtml(call.clientName || "")}" data-role="current-call-field" data-field="clientName" placeholder="Jane Smith" />
+        </label>
+        <label>
+          <span>Client email</span>
+          <input value="${escapeHtml(call.clientEmail || "")}" data-role="current-call-field" data-field="clientEmail" placeholder="jane@email.com" />
+        </label>
+        <label>
+          <span>Client phone</span>
+          <input value="${escapeHtml(call.clientPhone || "")}" data-role="current-call-field" data-field="clientPhone" placeholder="(727) 555-0199" />
+        </label>
+        <label class="span-2">
+          <span>Property address</span>
+          <input value="${escapeHtml(call.clientAddress || "")}" data-role="current-call-field" data-field="clientAddress" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" />
+        </label>
+      </div>
+
+      <div class="token-list">
+        <span class="token-chip">{{client_first_name}}</span>
+        <span class="token-chip">{{client_name}}</span>
+        <span class="token-chip">{{client_email}}</span>
+        <span class="token-chip">{{client_phone}}</span>
+        <span class="token-chip">{{client_address}}</span>
+        <span class="token-chip">{{sqft}}</span>
+        <span class="token-chip">{{beds}}</span>
+        <span class="token-chip">{{baths}}</span>
+        <span class="token-chip">{{service_type}}</span>
+        <span class="token-chip">{{one_time_price}}</span>
+        <span class="token-chip">{{biweekly_price}}</span>
+      </div>
+
+      ${quoteFacts.length ? `
+        <div class="quote-context-card">
+          <div class="block-title">Quote context</div>
+          <div class="quote-facts">${quoteFacts.map((item) => `<span class="quote-fact">${escapeHtml(item)}</span>`).join("")}</div>
+          ${call.quoteUpdatedAt ? `<div class="helper-text" style="margin-top:10px;">Last pulled from quote tool: ${escapeHtml(call.quoteUpdatedAt)}</div>` : ""}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
 function renderSettingsPanel() {
   if (!state.settingsOpen) return "";
   return `
@@ -778,7 +1012,7 @@ function renderSettingsPanel() {
         <button class="ghost-btn" data-action="toggle-settings">Close</button>
         <button class="warning-btn" data-action="sign-out">Sign out</button>
       </div>
-      <div class="helper-text" style="margin-top:10px;">These settings are saved per logged-in user. Use {{rep_name}} or {{rep_first_name}} in your text files to personalize scripts.</div>
+      <div class="helper-text" style="margin-top:10px;">These settings are saved per logged-in user. Scripts can use {{rep_name}}, {{rep_first_name}}, {{client_first_name}}, {{client_name}}, {{client_email}}, {{client_phone}}, {{client_address}}, {{sqft}}, {{beds}}, {{baths}}, {{service_type}}, {{one_time_price}}, {{weekly_price}}, {{biweekly_price}}, and {{monthly_price}}.</div>
     </div>
   `;
 }
@@ -1112,6 +1346,8 @@ function flowScreen() {
         </div>
       </div>
 
+      ${renderCurrentCallPanel()}
+
       <div class="flow-layout">
         <aside class="step-rail">
           <div class="step-rail-top">
@@ -1247,6 +1483,31 @@ function onClick(event) {
     signOutUser().catch((error) => notify(error.message || "Could not sign out.", "error"));
     return;
   }
+  if (action === "clear-current-call") {
+    clearCurrentCallContext();
+    notify("Current call cleared.", "success");
+    render();
+    return;
+  }
+  if (action === "open-quote-workspace") {
+    openQuoteWorkspace();
+    return;
+  }
+  if (action === "pull-quote-context") {
+    pullQuoteContextFromStorage();
+    return;
+  }
+  if (action === "copy-call-summary") {
+    const summary = callContextSummary();
+    if (!summary) {
+      notify("Nothing to copy yet.", "error");
+      return;
+    }
+    navigator.clipboard.writeText(summary)
+      .then(() => notify("Call summary copied.", "success"))
+      .catch(() => notify("Could not copy summary.", "error"));
+    return;
+  }
   if (action === "add-step") { createMainStep(); return; }
   if (action === "add-branch-step") { createBranchStep(); return; }
   if (action === "add-special-step") { createSpecialStep(button.dataset.type); return; }
@@ -1293,6 +1554,12 @@ function onInput(event) {
   if (target.dataset.role === "settings-field") {
     state.settingsDraft[target.dataset.field] = target.value;
     if (target.dataset.field === "theme") render();
+    return;
+  }
+
+  if (target.dataset.role === "current-call-field") {
+    state.currentCall[target.dataset.field] = target.value;
+    saveCurrentCallContext();
     return;
   }
 
@@ -1396,6 +1663,11 @@ function onChange(event) {
   if (target.id === "workspace-import") {
     handleImport(target.files?.[0]);
     target.value = "";
+    return;
+  }
+  if (target.dataset.role === "current-call-field") {
+    saveCurrentCallContext();
+    render();
   }
 }
 
@@ -1439,11 +1711,20 @@ subscribeToAuth(async (user) => {
     state.workspaceLoading = false;
     state.settingsOpen = false;
     state.settingsDraft = { repName: "", theme: "light" };
+    state.currentCall = blankCurrentCall();
     state.screen = "home";
     render();
     return;
   }
+  state.currentCall = loadCurrentCallContext(user.uid);
   await loadWorkspaceForUser(user);
 });
+
+window.addEventListener("storage", (event) => {
+  if (event.key === QUOTE_CONTEXT_STORAGE_KEY) {
+    // allow the rep to pull refreshed quote data manually without keeping two apps tightly coupled
+  }
+});
+
 
 render();

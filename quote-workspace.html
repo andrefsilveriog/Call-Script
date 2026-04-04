@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Joy of Cleaning Quote Workspace</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { border-radius: 0 !important; }
+
+  :root{
+    --page:#d4dae1;
+    --panel:#dde4eb;
+    --panel-2:#e8edf3;
+    --panel-3:#edf2f6;
+    --surface:#f6f8fb;
+    --surface-2:#eef2f6;
+    --border:#a9b8c9;
+    --border-strong:#91a5bc;
+    --ink:#243752;
+    --ink-soft:#71849a;
+    --navy:#122d66;
+    --navy-2:#1d3f7b;
+    --teal:#1ec7cf;
+    --teal-soft:#d8f3f3;
+    --mint:#d8ece8;
+    --lav:#e8e2ef;
+    --sand:#e9e1d4;
+    --green:#d9e9df;
+    --green-strong:#8cab93;
+    --white:#fff;
+    --radius:10px;
+    --shadow:none;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Inter',sans-serif;
+    background:var(--page);
+    color:var(--ink);
+    padding:10px;
+  }
+  .page{max-width:1560px;margin:0 auto}
+  .topline{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
+  .title h1{font-size:16px;line-height:1.1;font-weight:800;letter-spacing:-0.02em;color:var(--navy)}
+
+  .context-strip{
+    margin-bottom:6px;
+    padding:8px 10px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    display:grid;
+    gap:6px;
+  }
+  .context-row{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .context-chip{
+    padding:4px 8px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    font-size:11px;
+    font-weight:700;
+    color:var(--ink-soft);
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:var(--shadow);
+  }
+
+  .toolbar{
+    padding:8px;
+    display:grid;
+    grid-template-columns:minmax(420px,1.9fr) 120px auto;
+    gap:8px;
+    align-items:end;
+    margin-bottom:6px;
+  }
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{
+    font-size:10px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em;
+  }
+  .field.inline label{display:none}
+  input[type="text"],input[type="number"],select{
+    width:100%;
+    min-width:0;
+    height:34px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--ink);
+    padding:0 10px;
+    font-size:13px;
+    outline:none;
+  }
+  input:focus, select:focus{
+    border-color:var(--navy-2);
+    box-shadow:0 0 0 2px rgba(29,63,123,.08);
+  }
+  select option{color:#111}
+  .address-wrap{position:relative}
+  .address-wrap input{padding-left:36px}
+  .search-icon{
+    position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    width:15px;height:15px;color:#5f7690;pointer-events:none;
+  }
+  .toolbar-actions{display:flex;gap:8px;align-items:end}
+  .btn{
+    height:34px;border:1px solid var(--border);border-radius:10px;padding:0 12px;font-weight:700;cursor:pointer;
+    transition:transform .08s ease, opacity .2s ease, background .2s ease, border-color .2s ease;
+    font-size:13px;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .btn-primary:hover{background:#173575}
+  .btn-secondary{
+    background:var(--panel-2);
+    color:var(--ink);
+    border:1px solid var(--border);
+  }
+  .btn-secondary:hover{background:#e1e8f0;border-color:var(--border-strong)}
+
+  .property-card{
+    padding:8px 10px;
+    margin-bottom:8px;
+  }
+  .property-top{
+    display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;
+  }
+  .property-title{
+    font-size:12px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em;
+  }
+  .property-status{font-size:12px;color:var(--ink-soft)}
+  .property-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .status-chip{
+    font-size:11px;font-weight:700;border-radius:8px;padding:5px 9px;
+    background:var(--surface-2);color:#556b84;border:1px solid var(--border);
+  }
+  .status-chip.error{background:#efe0e0;border-color:#c6a4a4;color:#7d4d4d}
+  .status-chip.loading{background:#eee6d9;border-color:#c5b189;color:#826d3c}
+  .result-card,.error-card,.loading-card,.empty-state{display:none}
+  .result-card.active,.error-card.active,.loading-card.active,.empty-state.active{display:block}
+  .property-main{
+    margin-top:8px;
+    display:grid;
+    grid-template-columns:minmax(320px,1.9fr) repeat(3, minmax(92px, .72fr));
+    gap:6px;
+  }
+  .prop-big,.prop-stat{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px 10px;
+  }
+  .prop-big .address{font-size:13px;font-weight:800;line-height:1.25;color:var(--navy)}
+  .prop-big .meta{margin-top:4px;display:flex;gap:6px;flex-wrap:wrap}
+  .prop-big .meta span,.prop-big .meta a{
+    font-size:10px;color:var(--ink-soft);text-decoration:none;
+  }
+  .prop-big .meta a:hover{text-decoration:underline}
+  .prop-stat .k{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:800}
+  .prop-stat .v{margin-top:4px;font-size:14px;font-weight:800;color:var(--ink)}
+  .sheet{
+    padding:8px;
+    overflow:auto;
+  }
+  .sheet-toolbar{
+    display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;
+    margin-bottom:6px;
+  }
+  .sheet-toolbar .left{
+    display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+  }
+  .mini-pill{
+    padding:4px 8px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border);
+    font-size:10px;font-weight:800;color:#57708a;
+  }
+  .sheet-grid{
+    min-width:780px;
+    display:grid;
+    grid-template-columns:.95fr 1.05fr .78fr .55fr 2.3fr;
+    gap:4px;
+  }
+  .cell-label,.cell-input,.cell-value,.cell-header,.table-head,.table-cell,.summary-box,.script-row{
+    border-radius:0;
+  }
+  .cell-label{
+    background:#c9d4e0;
+    border:1px solid var(--border);
+    color:#526883;
+    min-height:28px;
+    display:flex;align-items:center;justify-content:center;
+    text-align:center;font-size:11px;font-weight:800;padding:5px 6px;line-height:1.1;
+  }
+  .cell-input{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    min-height:38px;
+    padding:3px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .cell-input input,.cell-input select{
+    background:var(--surface);color:var(--ink);border:1px solid #bcc7d3;height:30px;font-size:12px;
+  }
+  .addons-details{
+    min-width:780px;
+    margin-top:4px;
+    margin-bottom:6px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+  }
+  .addons-details summary{
+    list-style:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 12px;
+    cursor:pointer;
+    font-size:12px;
+    font-weight:800;
+    color:var(--ink);
+  }
+  .addons-details summary::-webkit-details-marker{display:none}
+  .addons-summary-note{font-size:11px;font-weight:700;color:var(--ink-soft);text-align:right}
+  .addons-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(120px,1fr));
+    gap:4px;
+    padding:0 8px 8px;
+  }
+  .addon-item{
+    background:var(--surface);
+    border:1px solid var(--border);
+    padding:7px 8px;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    min-width:0;
+  }
+  .addon-item label{
+    font-size:10px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-soft);
+  }
+  .addon-item input{
+    width:100%;
+    height:30px;
+    padding:0 8px;
+    border:1px solid #bcc7d3;
+    background:var(--surface-2);
+    font-size:12px;
+  }
+  .pricing-head{
+    margin-top:6px;margin-bottom:4px;
+    display:grid;min-width:780px;
+    grid-template-columns:1.45fr .75fr 1fr;
+    gap:4px;
+  }
+  .pricing-title{
+    background:#c9d4e0;color:#526883;font-weight:800;padding:7px 8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;text-align:center;
+  }
+  .pricing-values{
+    display:grid;min-width:780px;
+    grid-template-columns:1.45fr .75fr 1fr;
+    gap:4px;
+    margin-bottom:4px;
+  }
+  .addon-breakdown-strip{
+    min-width:780px;
+    display:grid;
+    grid-template-columns:150px 1fr;
+    gap:4px;
+    margin-bottom:6px;
+  }
+  .addon-breakdown-title,.addon-breakdown-text{
+    background:var(--surface);
+    border:1px solid var(--border);
+    min-height:30px;
+    display:flex;
+    align-items:center;
+    padding:6px 8px;
+    font-size:12px;
+  }
+  .addon-breakdown-title{
+    background:#c9d4e0;
+    color:#526883;
+    justify-content:center;
+    font-weight:800;
+  }
+  .addon-breakdown-text{
+    color:var(--ink);
+    font-weight:700;
+  }
+  .cell-value{
+    background:var(--surface);border:1px solid var(--border);color:var(--ink);min-height:44px;padding:6px 8px;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
+  }
+  .cell-value .k{font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--ink-soft)}
+  .cell-value .v{margin-top:4px;font-size:16px;font-weight:800;line-height:1}
+  .cell-value.base{background:var(--navy);border-color:var(--navy);color:#fff}
+  .cell-value.base .k,.cell-value.base .v{color:#fff}
+  .cell-value.base .v{font-size:18px}
+  .cell-value.alt{background:#eef2f6}
+  .bottom-grid{
+    min-width:780px;
+    display:grid;
+    grid-template-columns:1.2fr .92fr .88fr;
+    gap:6px;
+    align-items:start;
+  }
+  .block{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px;
+  }
+  .block-title{
+    font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-soft);margin-bottom:6px;
+  }
+  .table{
+    display:grid;
+    grid-template-columns:1.15fr .86fr .78fr .88fr;
+    gap:4px;
+  }
+  .table-head{
+    background:#c9d4e0;color:#526883;border:1px solid var(--border);font-weight:800;font-size:10px;min-height:28px;padding:6px;display:flex;align-items:center;justify-content:center;text-align:center;
+  }
+  .table-cell{
+    background:var(--surface);border:1px solid var(--border);color:var(--ink);min-height:34px;padding:7px 8px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;font-weight:700;
+  }
+  .table-cell.label{justify-content:flex-start;background:#edf1f6}
+  .table-cell.green{background:#d7ebe0;color:#294f42;border-color:#a5c2b1}
+  .meta-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:4px;
+  }
+  .summary-box{
+    background:var(--surface);border:1px solid var(--border);color:var(--ink);padding:8px 9px;min-height:52px;display:flex;flex-direction:column;justify-content:center;
+  }
+  .summary-box .k{font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:var(--ink-soft)}
+  .summary-box .v{margin-top:4px;font-size:16px;font-weight:800;line-height:1.05}
+  .summary-box.green{background:var(--navy);border-color:var(--navy);color:#fff}
+  .summary-box.green .k,.summary-box.green .v{color:#fff}
+  .summary-box.big .v{font-size:24px}
+  .summary-box.split{padding:0;overflow:hidden}
+  .split-total{display:none;height:100%;grid-template-columns:1fr 1fr}
+  .split-total.active{display:grid}
+  .split-half{padding:8px 10px;display:flex;flex-direction:column;justify-content:center;min-height:64px}
+  .split-half + .split-half{border-left:1px solid rgba(255,255,255,0.18)}
+  .split-half .k{font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:rgba(255,255,255,0.84)}
+  .split-half .v{margin-top:4px;font-size:20px;font-weight:800;line-height:1.05;color:#fff}
+  .single-total{display:block}
+  .single-total.hidden{display:none}
+  .muted{color:#7b95ad}
+  @media (max-width:1100px){
+    .toolbar{grid-template-columns:1fr 1fr; }
+    .property-main{grid-template-columns:1fr 1fr}
+    .sheet-grid{grid-template-columns:1fr 1fr .8fr .7fr 1.7fr;}
+    .addons-grid{grid-template-columns:repeat(2,minmax(120px,1fr));}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topline">
+    <div class="title">
+      <h1>Joy of Cleaning Quote Calculator</h1>
+    </div>
+  </div>
+
+  <div class="context-strip card" id="linkedContextCard" style="display:none;">
+    <div class="property-title">Linked call context</div>
+    <div class="context-row" id="linkedContextRow"></div>
+  </div>
+
+  <div class="toolbar card">
+    <div class="field inline">
+      <label for="addressInput">Property address</label>
+      <div class="address-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="addressInput" placeholder="833 Marco Dr NE, St Petersburg, 33702" autocomplete="off" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="sqftInput">Exact sqft</label>
+      <input type="number" id="sqftInput" min="0" step="1" placeholder="Auto / manual" />
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn btn-primary" id="searchBtn">Search Zillow</button>
+      <button class="btn btn-secondary" id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div class="property-card card">
+    <div class="property-top">
+      <div>
+        <div class="property-title">Property summary</div>
+        <div class="property-status" id="lookupStatusPill">No property loaded yet</div>
+      </div>
+      <div class="property-actions">
+        <span class="status-chip" id="lookupModePill">Waiting for lookup</span>
+      </div>
+    </div>
+
+    <div class="loading-card" id="loadingCard">
+      <span class="status-chip loading">Searching Zillow…</span>
+    </div>
+
+    <div class="error-card" id="errorCard" style="margin-top:10px;">
+      <span class="status-chip error" id="errorText">Lookup failed</span>
+    </div>
+
+    <div class="empty-state active" id="emptyState" style="margin-top:10px;">
+      <span class="status-chip">Type an address above to prefill property details and square footage.</span>
+    </div>
+
+    <div class="result-card" id="resultCard">
+      <div class="property-main">
+        <div class="prop-big">
+          <div class="address" id="resultAddress">—</div>
+          <div class="meta" id="metaRow"></div>
+        </div>
+        <div class="prop-stat"><div class="k">Bedrooms</div><div class="v" id="statBeds">—</div></div>
+        <div class="prop-stat"><div class="k">Bathrooms</div><div class="v" id="statBaths">—</div></div>
+        <div class="prop-stat"><div class="k">Sq. Footage</div><div class="v" id="statSqft">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet card">
+    <div class="sheet-toolbar">
+      <div class="left">
+        <span class="mini-pill" id="lineMeta">0-700 • Current Rate ($65/hr) • 0 hrs</span>
+      </div>
+    </div>
+
+    <div class="sheet-grid">
+      <div class="cell-label">Rate Mode</div>
+      <div class="cell-label">Type of Cleaning</div>
+      <div class="cell-label">Sq Ft</div>
+      <div class="cell-label">Dirt</div>
+      <div class="cell-label">Add-ons</div>
+
+      <div class="cell-input">
+        <select id="rateModeSelect">
+          <option value="decreasePrice">Decrease Price — $60/hr</option>
+          <option value="currentRate" selected>Current Rate — $65/hr</option>
+          <option value="increasePrice">Increase Price — $80/hr</option>
+        </select>
+      </div>
+      <div class="cell-input">
+        <select id="serviceTypeSelect">
+          <option value="DEEP" selected>DEEP</option>
+          <option value="MOVE-IN/OUT">MOVE-IN/OUT</option>
+          <option value="POST CONSTRUCTION">POST CONSTRUCTION</option>
+        </select>
+      </div>
+      <div class="cell-input"><select id="bandSelect"></select></div>
+      <div class="cell-input"><input type="number" id="dirtInput" min="1" max="10" step="1" value="3" /></div>
+      <div class="cell-input" style="justify-content:stretch;">
+        <details class="addons-details" id="addonsDetails" style="width:100%; margin:0; min-width:0;">
+          <summary>
+            <span>Add-ons menu</span>
+            <span class="addons-summary-note" id="addonsSummaryText">None selected</span>
+          </summary>
+          <div class="addons-grid">
+            <div class="addon-item"><label for="petsInput">Pets</label><select id="petsInput"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+            <div class="addon-item"><label for="doorsInput">Doors</label><select id="doorsInput"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+            <div class="addon-item"><label for="windowsInput">Windows</label><select id="windowsInput"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+            <div class="addon-item"><label for="laundryInput">Laundry</label><select id="laundryInput"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+            <div class="addon-item"><label for="fridgeInput">Fridge</label><select id="fridgeInput"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+            <div class="addon-item"><label for="ovenInput">Oven</label><select id="ovenInput"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+            <div class="addon-item"><label for="fsInput">F &amp; S</label><select id="fsInput"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+            <div class="addon-item"><label for="laundryFsInput">Laundry + F&amp;S</label><select id="laundryFsInput"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="pricing-head">
+      <div class="pricing-title">Base Pricing</div>
+      <div class="pricing-title">Dirt</div>
+      <div class="pricing-title">Add-ons</div>
+    </div>
+
+    <div class="pricing-values">
+      <div class="cell-value base">
+        <div class="k">Base one-time before fees</div>
+        <div class="v" id="lineBase">$0</div>
+      </div>
+      <div class="cell-value alt"><div class="k">Dirt</div><div class="v" id="lineDirt">$0</div></div>
+      <div class="cell-value"><div class="k">Add-ons total</div><div class="v" id="lineAddons">$0</div></div>
+    </div>
+
+    <div class="addon-breakdown-strip" id="addonBreakdownStrip" style="display:none;">
+      <div class="addon-breakdown-title">Selected add-ons</div>
+      <div class="addon-breakdown-text" id="addonBreakdownText">None selected</div>
+    </div>
+
+    <div class="bottom-grid">
+      <div class="block">
+        <div class="block-title">Recurring prices</div>
+        <div class="table">
+          <div class="table-head">Visit</div>
+          <div class="table-head">Before Fees</div>
+          <div class="table-head">Admin Fee</div>
+          <div class="table-head">Total</div>
+
+          <div class="table-cell label">Weekly visit</div>
+          <div class="table-cell" id="weeklyBefore">$0</div>
+          <div class="table-cell" id="weeklyFee">$0</div>
+          <div class="table-cell green" id="summaryWeekly">$0</div>
+
+          <div class="table-cell label">Biweekly visit</div>
+          <div class="table-cell" id="biweeklyBefore">$0</div>
+          <div class="table-cell" id="biweeklyFee">$0</div>
+          <div class="table-cell green" id="summaryBiweekly">$0</div>
+
+          <div class="table-cell label">Monthly visit</div>
+          <div class="table-cell" id="monthlyBefore">$0</div>
+          <div class="table-cell" id="monthlyFee">$0</div>
+          <div class="table-cell green" id="summaryMonthly">$0</div>
+
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-title">One-time total</div>
+        <div class="meta-grid">
+          <div class="summary-box">
+            <div class="k">Before fees</div>
+            <div class="v" id="totalBeforeFees">$0</div>
+          </div>
+          <div class="summary-box">
+            <div class="k">Admin fee 3%</div>
+            <div class="v" id="totalAdminFee">$0</div>
+          </div>
+          <div class="summary-box green big split" style="grid-column:span 2;">
+            <div class="single-total" id="singleTotalWrap">
+              <div class="k">Total after fees</div>
+              <div class="v" id="summaryOneTime">$0</div>
+            </div>
+            <div class="split-total" id="splitTotalWrap">
+              <div class="split-half">
+                <div class="k">Recurring sign-up price</div>
+                <div class="v" id="summaryOneTimeDiscounted">$0</div>
+              </div>
+              <div class="split-half">
+                <div class="k">Full price</div>
+                <div class="v" id="summaryOneTimeFull">$0</div>
+              </div>
+            </div>
+          </div>
+          <div class="summary-box">
+            <div class="k">Initial 25% off</div>
+            <div class="v" id="summaryDiscount">$0</div>
+          </div>
+          <div class="summary-box">
+            <div class="k">Cancelation fee</div>
+            <div class="v" id="summaryCancel">$0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-title">Quick facts</div>
+        <div class="meta-grid">
+          <div class="summary-box">
+            <div class="k">Service</div>
+            <div class="v" id="metaService">DEEP</div>
+          </div>
+          <div class="summary-box">
+            <div class="k">Hourly rate</div>
+            <div class="v" id="metaRate">$65</div>
+          </div>
+          <div class="summary-box">
+            <div class="k">Hours</div>
+            <div class="v" id="summaryHours">0</div>
+          </div>
+          <div class="summary-box">
+            <div class="k">Add-ons total</div>
+            <div class="v" id="summaryAddons">$0</div>
+          </div>
+          <div class="summary-box" style="grid-column:span 2;">
+            <div class="k">Band</div>
+            <div class="v" id="metaBand">0-700</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_KEY = "13f48093camsh327fb2e22872c41p19ff28jsn9ac49867622f";
+const API_HOST = "private-zillow.p.rapidapi.com";
+const HEADERS = {
+  "x-rapidapi-key": API_KEY,
+  "x-rapidapi-host": API_HOST,
+  "Content-Type": "application/json"
+};
+
+const RATE_MODES = {
+  decreasePrice: { label: "Decrease Price", hourlyRate: 60 },
+  currentRate: { label: "Current Rate", hourlyRate: 65 },
+  increasePrice: { label: "Increase Price", hourlyRate: 80 },
+};
+
+const SERVICE_TYPES = {
+  DEEP: "DEEP",
+  MOVE_IN_OUT: "MOVE-IN/OUT",
+  POST_CONSTRUCTION: "POST CONSTRUCTION",
+};
+
+const SQFT_BANDS = [
+  { id: "0-700",     min: 0,    max: 700,  deepToHours: 4.0,  moveToHours: 5.5,  weeklyToHours: 2.0,  biweeklyToHours: 2.25, monthlyToHours: 2.5 },
+  { id: "701-1000",  min: 701,  max: 1000, deepToHours: 4.25, moveToHours: 6.0,  weeklyToHours: 2.0,  biweeklyToHours: 2.5,  monthlyToHours: 3.0 },
+  { id: "1001-1250", min: 1001, max: 1250, deepToHours: 4.5,  moveToHours: 6.5,  weeklyToHours: 2.25, biweeklyToHours: 2.75, monthlyToHours: 3.5 },
+  { id: "1251-1500", min: 1251, max: 1500, deepToHours: 5.0,  moveToHours: 7.0,  weeklyToHours: 2.5,  biweeklyToHours: 3.0,  monthlyToHours: 3.75 },
+  { id: "1501-1750", min: 1501, max: 1750, deepToHours: 5.5,  moveToHours: 8.0,  weeklyToHours: 3.0,  biweeklyToHours: 3.25, monthlyToHours: 4.0 },
+  { id: "1751-2000", min: 1751, max: 2000, deepToHours: 6.0,  moveToHours: 8.5,  weeklyToHours: 3.25, biweeklyToHours: 3.5,  monthlyToHours: 4.5 },
+  { id: "2001-2250", min: 2001, max: 2250, deepToHours: 6.5,  moveToHours: 9.5,  weeklyToHours: 3.5,  biweeklyToHours: 3.75, monthlyToHours: 5.0 },
+  { id: "2251-2500", min: 2251, max: 2500, deepToHours: 7.0,  moveToHours: 10.0, weeklyToHours: 3.75, biweeklyToHours: 4.0,  monthlyToHours: 5.5 },
+  { id: "2501-2750", min: 2501, max: 2750, deepToHours: 7.5,  moveToHours: 11.0, weeklyToHours: 4.0,  biweeklyToHours: 4.25, monthlyToHours: 6.0 },
+  { id: "2751-3000", min: 2751, max: 3000, deepToHours: 8.0,  moveToHours: 12.0, weeklyToHours: 4.25, biweeklyToHours: 4.5,  monthlyToHours: 6.5 },
+  { id: "3001-3500", min: 3001, max: 3500, deepToHours: 9.0,  moveToHours: 13.0, weeklyToHours: 5.0,  biweeklyToHours: 5.75, monthlyToHours: 7.0 },
+  { id: "3501-4000", min: 3501, max: 4000, deepToHours: 10.0, moveToHours: 15.0, weeklyToHours: 5.75, biweeklyToHours: 6.25, monthlyToHours: 8.5 },
+  { id: "4001-5000", min: 4001, max: 5000, deepToHours: 11.0, moveToHours: 17.0, weeklyToHours: 6.5,  biweeklyToHours: 7.0,  monthlyToHours: 9.0 },
+  { id: "5001-6000", min: 5001, max: 6000, deepToHours: 12.0, moveToHours: 18.0, weeklyToHours: 7.5,  biweeklyToHours: 8.0,  monthlyToHours: 10.0 },
+  { id: "6001-8000", min: 6001, max: 8000, deepToHours: 13.0, moveToHours: 22.0, weeklyToHours: 7.0,  biweeklyToHours: 9.5,  monthlyToHours: 11.0 },
+];
+
+const ADD_ONS = {
+  doors: 30,
+  windows: 10,
+  laundry: 35,
+  fridge: 70,
+  oven: 60,
+  fAndS: 115,
+  laundryAndFS: 140,
+};
+
+const ADMIN_FEE_RATE = 0.03;
+const INITIAL_DISCOUNT_RATE = 0.25;
+const CANCELLATION_FEE_RATE = 0.05;
+
+const PET_SURCHARGES = {
+  1: { "0-700":0, "701-1000":0, "1001-1250":0, "1251-1500":0, "1501-1750":0, "1751-2000":0, "2001-2250":15, "2251-2500":15, "2501-2750":30, "2751-3000":30, "3001-3500":30, "3501-4000":30, "4001-5000":30, "5001-6000":30, "6001-8000":30 },
+  2: { "0-700":15, "701-1000":15, "1001-1250":20, "1251-1500":20, "1501-1750":30, "1751-2000":30, "2001-2250":30, "2251-2500":30, "2501-2750":30, "2751-3000":30, "3001-3500":30, "3501-4000":30, "4001-5000":30, "5001-6000":30, "6001-8000":30 },
+  3: { "0-700":30, "701-1000":30, "1001-1250":30, "1251-1500":30, "1501-1750":45, "1751-2000":45, "2001-2250":60, "2251-2500":60, "2501-2750":75, "2751-3000":75, "3001-3500":75, "3501-4000":75, "4001-5000":75, "5001-6000":75, "6001-8000":75 },
+  4: { "0-700":45, "701-1000":45, "1001-1250":45, "1251-1500":45, "1501-1750":60, "1751-2000":60, "2001-2250":75, "2251-2500":75, "2501-2750":75, "2751-3000":75, "3001-3500":90, "3501-4000":90, "4001-5000":90, "5001-6000":90, "6001-8000":90 },
+  5: { "0-700":60, "701-1000":60, "1001-1250":60, "1251-1500":60, "1501-1750":75, "1751-2000":75, "2001-2250":90, "2251-2500":90, "2501-2750":90, "2751-3000":90, "3001-3500":120, "3501-4000":120, "4001-5000":120, "5001-6000":120, "6001-8000":120 },
+};
+
+const QUOTE_CONTEXT_STORAGE_KEY = "joc-quote-context-v1";
+const params = new URLSearchParams(window.location.search);
+const linkedContext = {
+  clientName: params.get("client_name") || "",
+  clientEmail: params.get("client_email") || "",
+  clientPhone: params.get("client_phone") || "",
+  address: params.get("address") || "",
+  repName: params.get("rep_name") || "",
+};
+
+const state = {
+  rateMode: "currentRate",
+  serviceType: SERVICE_TYPES.DEEP,
+  lastLookup: null,
+  manualBandOverride: false,
+};
+
+const $ = id => document.getElementById(id);
+
+const addressInput = $("addressInput");
+const searchBtn = $("searchBtn");
+const rateModeSelect = $("rateModeSelect");
+const serviceTypeSelect = $("serviceTypeSelect");
+const bandSelect = $("bandSelect");
+const sqftInput = $("sqftInput");
+const dirtInput = $("dirtInput");
+const petsInput = $("petsInput");
+const doorsInput = $("doorsInput");
+const windowsInput = $("windowsInput");
+const laundryInput = $("laundryInput");
+const fridgeInput = $("fridgeInput");
+const ovenInput = $("ovenInput");
+const fsInput = $("fsInput");
+const laundryFsInput = $("laundryFsInput");
+
+function init() {
+  populateBandSelect();
+  bindEvents();
+  recalculate();
+}
+
+function bindEvents() {
+  searchBtn.addEventListener("click", doSearch);
+  addressInput.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+
+  rateModeSelect.addEventListener("change", () => {
+    state.rateMode = rateModeSelect.value;
+    recalculate();
+  });
+
+  serviceTypeSelect.addEventListener("change", () => {
+    state.serviceType = serviceTypeSelect.value;
+    recalculate();
+  });
+
+  [sqftInput, dirtInput, petsInput, doorsInput, windowsInput, laundryInput, fridgeInput, ovenInput, fsInput, laundryFsInput].forEach(el => {
+    el.addEventListener("input", () => {
+      if (el === sqftInput) {
+        state.manualBandOverride = false;
+        syncBandToSqft();
+      }
+      recalculate();
+    });
+    el.addEventListener("change", () => {
+      if (el === sqftInput) {
+        state.manualBandOverride = false;
+        syncBandToSqft();
+      }
+      recalculate();
+    });
+  });
+
+
+  bandSelect.addEventListener("change", () => {
+    state.manualBandOverride = true;
+    recalculate();
+  });
+
+  $("resetBtn").addEventListener("click", resetForm);
+}
+
+function populateBandSelect() {
+  bandSelect.innerHTML = SQFT_BANDS.map(b => `<option value="${b.id}">${b.id}</option>`).join("");
+  bandSelect.value = "0-700";
+}
+
+function resetForm() {
+  addressInput.value = "";
+  rateModeSelect.value = "currentRate";
+  serviceTypeSelect.value = SERVICE_TYPES.DEEP;
+  sqftInput.value = "";
+  bandSelect.value = "0-700";
+  dirtInput.value = 3;
+  petsInput.value = 0;
+  doorsInput.value = 0;
+  windowsInput.value = 0;
+  laundryInput.value = 0;
+  fridgeInput.value = 0;
+  ovenInput.value = 0;
+  fsInput.value = 0;
+  laundryFsInput.value = 0;
+  state.rateMode = "currentRate";
+  state.serviceType = SERVICE_TYPES.DEEP;
+  state.manualBandOverride = false;
+  state.lastLookup = null;
+  $("lookupStatusPill").textContent = "No property loaded yet";
+  $("lookupModePill").textContent = "Waiting for lookup";
+  $("resultCard").classList.remove("active");
+  $("errorCard").classList.remove("active");
+  $("loadingCard").classList.remove("active");
+  $("emptyState").classList.add("active");
+  recalculate();
+}
+
+async function copyText(text, status) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const pill = $("lookupModePill");
+    const old = pill.textContent;
+    pill.textContent = status;
+    setTimeout(() => { pill.textContent = old; }, 1600);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function readNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function readInputs() {
+  return {
+    rateMode: rateModeSelect.value,
+    serviceType: serviceTypeSelect.value,
+    sqft: sqftInput.value ? readNumber(sqftInput.value, null) : null,
+    bandId: bandSelect.value,
+    dirt: Math.min(10, Math.max(1, readNumber(dirtInput.value, 3))),
+    deluxe: false,
+    pets: Math.min(5, Math.max(0, readNumber(petsInput.value, 0))),
+    addOns: {
+      doors: Math.max(0, readNumber(doorsInput.value, 0)),
+      windows: Math.max(0, readNumber(windowsInput.value, 0)),
+      laundry: Math.max(0, readNumber(laundryInput.value, 0)),
+      fridge: Math.max(0, readNumber(fridgeInput.value, 0)),
+      oven: Math.max(0, readNumber(ovenInput.value, 0)),
+      fAndS: Math.max(0, readNumber(fsInput.value, 0)),
+      laundryAndFS: Math.max(0, readNumber(laundryFsInput.value, 0)),
+    },
+  };
+}
+
+function round2(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function ceilQuarter(n) { return Math.ceil(n * 4) / 4; }
+function ceilHalf(n) { return Math.ceil(n * 2) / 2; }
+
+function formatMoney(n) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(Number(n || 0));
+}
+function formatCompactMoney(n) { return formatMoney(n); }
+
+function findBandBySqft(sqft) {
+  return SQFT_BANDS.find(b => sqft >= b.min && sqft <= b.max) ?? null;
+}
+
+function getBand({ sqft, bandId }) {
+  if (bandId) return SQFT_BANDS.find(b => b.id === bandId) ?? null;
+  if (typeof sqft === "number") return findBandBySqft(sqft);
+  return null;
+}
+
+function getDeluxeCharge() { return 0; }
+
+function getDirtCharge(serviceType, dirt) {
+  if (!dirt || dirt <= 3) return 0;
+  const base = (dirt - 3) * 30;
+  return serviceType === SERVICE_TYPES.MOVE_IN_OUT ? base + 30 : base;
+}
+
+function getPetCharge(pets, bandId) {
+  if (!pets || pets < 1) return 0;
+  const tier = PET_SURCHARGES[Math.min(pets, 5)];
+  return tier?.[bandId] ?? 0;
+}
+
+function getAddOnBreakdown(addOns = {}) {
+  return {
+    doors: (addOns.doors || 0) * ADD_ONS.doors,
+    windows: (addOns.windows || 0) * ADD_ONS.windows,
+    laundry: (addOns.laundry || 0) * ADD_ONS.laundry,
+    fridge: (addOns.fridge || 0) * ADD_ONS.fridge,
+    oven: (addOns.oven || 0) * ADD_ONS.oven,
+    fAndS: (addOns.fAndS || 0) * ADD_ONS.fAndS,
+    laundryAndFS: (addOns.laundryAndFS || 0) * ADD_ONS.laundryAndFS,
+  };
+}
+
+function getAddOnTotal(addOns = {}) {
+  const d = getAddOnBreakdown(addOns);
+  return d.doors + d.windows + d.laundry + d.fridge + d.oven + d.fAndS + d.laundryAndFS;
+}
+
+function getBaseOneTimeBeforeFees(serviceType, band, rate) {
+  if (serviceType === SERVICE_TYPES.DEEP) return band.deepToHours * rate;
+  return band.moveToHours * rate;
+}
+
+function getRecurringBaseBeforeFees(kind, band, rate) {
+  if (kind === "weekly") return band.weeklyToHours * rate;
+  if (kind === "biweekly") return band.biweeklyToHours * rate;
+  if (kind === "monthly") return band.monthlyToHours * rate;
+  throw new Error("Invalid recurring kind");
+}
+
+function withAdminFee(beforeFees) {
+  const adminFee = round2(beforeFees * ADMIN_FEE_RATE);
+  return { beforeFees: round2(beforeFees), adminFee, total: round2(beforeFees + adminFee) };
+}
+
+function calculateQuote(input) {
+  const band = getBand({ sqft: input.sqft, bandId: input.bandId });
+  if (!band) throw new Error("No sqft band found");
+
+  const rate = RATE_MODES[input.rateMode]?.hourlyRate;
+  if (!rate) throw new Error("Invalid rate mode");
+
+  const dirtCharge = getDirtCharge(input.serviceType, input.dirt);
+  const deluxeCharge = getDeluxeCharge(band.id, input.deluxe);
+  const petCharge = getPetCharge(input.pets, band.id);
+  const addOnBreakdown = getAddOnBreakdown(input.addOns);
+  const addOnTotal = getAddOnTotal(input.addOns);
+
+  const moveLikeBase = getBaseOneTimeBeforeFees(
+    input.serviceType === SERVICE_TYPES.DEEP ? SERVICE_TYPES.DEEP : SERVICE_TYPES.MOVE_IN_OUT,
+    band,
+    rate
+  );
+
+  let oneTimeBeforeFees = moveLikeBase + dirtCharge + petCharge + addOnTotal;
+  let hoursEstimate;
+
+  if (input.serviceType === SERVICE_TYPES.POST_CONSTRUCTION) {
+    oneTimeBeforeFees = round2((oneTimeBeforeFees / rate) * 1.3 * 80);
+    hoursEstimate = ceilHalf(oneTimeBeforeFees / 70);
+  } else {
+    hoursEstimate = ceilQuarter((oneTimeBeforeFees - 10) / rate);
+  }
+
+  const oneTime = withAdminFee(oneTimeBeforeFees);
+  const recurringWeeklyBase = getRecurringBaseBeforeFees("weekly", band, rate);
+  const recurringBiweeklyBase = getRecurringBaseBeforeFees("biweekly", band, rate);
+  const recurringMonthlyBase = getRecurringBaseBeforeFees("monthly", band, rate);
+
+  return {
+    selected: {
+      bandId: band.id,
+      rateMode: input.rateMode,
+      rateLabel: RATE_MODES[input.rateMode].label,
+      rate,
+      serviceType: input.serviceType,
+      sqft: input.sqft,
+      dirt: input.dirt,
+      pets: input.pets,
+    },
+    breakdown: {
+      baseOneTimeBeforeFees: round2(moveLikeBase),
+      dirtCharge: round2(dirtCharge),
+      petCharge: round2(petCharge),
+      addOnBreakdown,
+      addOnTotal: round2(addOnTotal),
+    },
+    oneTime: {
+      ...oneTime,
+      initial25OffAmount: round2(oneTime.beforeFees * INITIAL_DISCOUNT_RATE),
+      discountedTotal: round2(oneTime.beforeFees * (1 - INITIAL_DISCOUNT_RATE)),
+      cancellationFee: round2(oneTime.beforeFees * CANCELLATION_FEE_RATE),
+      hoursEstimate,
+    },
+    recurring: {
+      weekly: withAdminFee(recurringWeeklyBase),
+      biweekly: withAdminFee(recurringBiweeklyBase),
+      monthly: withAdminFee(recurringMonthlyBase),
+    },
+    notes: {
+      isPostConstruction: input.serviceType === SERVICE_TYPES.POST_CONSTRUCTION,
+    },
+  };
+}
+
+function formatAddOnSummaryFromInputs(pets = 0, addOns = {}) {
+  const labels = [];
+  if (Number(pets) > 0) labels.push(`Pets × ${pets}`);
+  [
+    ["Doors", addOns.doors],
+    ["Windows", addOns.windows],
+    ["Laundry", addOns.laundry],
+    ["Fridge", addOns.fridge],
+    ["Oven", addOns.oven],
+    ["F&S", addOns.fAndS],
+    ["Laundry + F&S", addOns.laundryAndFS],
+  ].forEach(([label, count]) => {
+    if (Number(count) > 0) labels.push(`${label} × ${count}`);
+  });
+
+  if (!labels.length) return { count: 0, text: "None selected" };
+  return { count: labels.length, text: labels.join(" • ") };
+}
+
+function updateAddOnUi(result) {
+  const inputs = readInputs();
+  const summary = formatAddOnSummaryFromInputs(inputs.pets, inputs.addOns);
+  $("addonsSummaryText").textContent = summary.count ? `${summary.count} selected` : "None selected";
+  $("addonBreakdownText").textContent = summary.text;
+  $("addonBreakdownStrip").style.display = summary.count ? "grid" : "none";
+}
+
+function recalculate() {
+  renderQuote(calculateQuote(readInputs()));
+}
+
+function renderQuote(result) {
+  const groupedAddons = result.breakdown.petCharge + result.breakdown.addOnTotal;
+
+  $("lineBase").textContent = formatMoney(result.breakdown.baseOneTimeBeforeFees);
+  $("lineDirt").textContent = formatMoney(result.breakdown.dirtCharge);
+  $("lineAddons").textContent = formatMoney(groupedAddons);
+  $("summaryAddons").textContent = formatMoney(groupedAddons);
+  updateAddOnUi(result);
+
+  $("lineMeta").textContent = `${result.selected.bandId} • ${RATE_MODES[result.selected.rateMode].label} (${formatMoney(result.selected.rate)}/hr) • ${result.oneTime.hoursEstimate} hrs`;
+
+  $("weeklyBefore").textContent = formatMoney(result.recurring.weekly.beforeFees);
+  $("weeklyFee").textContent = formatMoney(result.recurring.weekly.adminFee);
+  $("summaryWeekly").textContent = formatMoney(result.recurring.weekly.total);
+  $("biweeklyBefore").textContent = formatMoney(result.recurring.biweekly.beforeFees);
+  $("biweeklyFee").textContent = formatMoney(result.recurring.biweekly.adminFee);
+  $("summaryBiweekly").textContent = formatMoney(result.recurring.biweekly.total);
+  $("monthlyBefore").textContent = formatMoney(result.recurring.monthly.beforeFees);
+  $("monthlyFee").textContent = formatMoney(result.recurring.monthly.adminFee);
+  $("summaryMonthly").textContent = formatMoney(result.recurring.monthly.total);
+
+  $("totalBeforeFees").textContent = formatMoney(result.oneTime.beforeFees);
+  $("totalAdminFee").textContent = formatMoney(result.oneTime.adminFee);
+  $("summaryOneTime").textContent = formatMoney(result.oneTime.total);
+  $("summaryOneTimeDiscounted").textContent = formatMoney(result.oneTime.discountedTotal);
+  $("summaryOneTimeFull").textContent = formatMoney(result.oneTime.total);
+  $("summaryDiscount").textContent = formatMoney(result.oneTime.initial25OffAmount);
+  $("summaryCancel").textContent = formatMoney(result.oneTime.cancellationFee);
+
+  const isDeep = result.selected.serviceType === SERVICE_TYPES.DEEP;
+  $("singleTotalWrap").classList.toggle("hidden", isDeep);
+  $("splitTotalWrap").classList.toggle("active", isDeep);
+
+  $("metaService").textContent = result.selected.serviceType;
+  $("metaRate").textContent = `${formatMoney(result.selected.rate)}/hr`;
+  $("summaryHours").textContent = result.oneTime.hoursEstimate.toFixed(2).replace(/\.00$/, "");
+  $("metaBand").textContent = result.selected.bandId;
+
+  if (!state.manualBandOverride) syncBandToSqft();
+  persistQuoteContext(result);
+}
+
+function syncBandToSqft() {
+  const sqft = readNumber(sqftInput.value, null);
+  if (sqft === null || !Number.isFinite(sqft) || sqft <= 0) return;
+  const band = findBandBySqft(sqft);
+  if (band) bandSelect.value = band.id;
+}
+
+function renderResult(d) {
+  const a = d.PropertyAddress || {};
+  const addrStr = [a.streetAddress, a.city, a.state, a.zipcode].filter(Boolean).join(", ") || addressInput.value;
+  $("resultAddress").textContent = addrStr;
+
+  $("statBeds").textContent = fmt(d.Bedrooms);
+  $("statBaths").textContent = fmt(d.Bathrooms);
+
+  const sqft = d["Area(sqft)"] != null ? Number(d["Area(sqft)"]) : null;
+  $("statSqft").textContent = sqft != null ? `${fmt(sqft)} ft²` : "—";
+
+  const metas = [];
+  if (d.yearBuilt) metas.push(`Built ${d.yearBuilt}`);
+  if (d.Price) metas.push(`Listed ${formatMoney(Number(d.Price))}`);
+  if (d.daysOnZillow) metas.push(`${Number(d.daysOnZillow).toLocaleString()} days on Zillow`);
+  if (d.PropertyZillowURL) metas.push(`<a href="${d.PropertyZillowURL}" target="_blank" rel="noopener">View on Zillow ↗</a>`);
+  $("metaRow").innerHTML = metas.map(m => `<span>${m}</span>`).join("");
+
+  $("resultCard").classList.add("active");
+  $("emptyState").classList.remove("active");
+  $("errorCard").classList.remove("active");
+
+  if (sqft && Number.isFinite(sqft)) {
+    sqftInput.value = Math.round(sqft);
+    state.manualBandOverride = false;
+    syncBandToSqft();
+  }
+
+  $("lookupStatusPill").textContent = sqft ? `Loaded ${fmt(sqft)} ft² from Zillow` : "Property loaded, no sqft found";
+  $("lookupModePill").textContent = "Property loaded";
+  state.lastLookup = d;
+  recalculate();
+}
+
+async function doSearch() {
+  const addr = addressInput.value.trim();
+  if (!addr) return;
+
+  $("resultCard").classList.remove("active");
+  $("errorCard").classList.remove("active");
+  $("emptyState").classList.remove("active");
+  $("loadingCard").classList.add("active");
+  searchBtn.disabled = true;
+  $("lookupStatusPill").textContent = "Searching Zillow...";
+  $("lookupModePill").textContent = "Searching";
+
+  try {
+    const res = await fetch(
+      `https://${API_HOST}/byaddress?propertyaddress=${encodeURIComponent(addr)}`,
+      { headers: HEADERS }
+    );
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`API returned ${res.status}: ${txt.substring(0, 200)}`);
+    }
+
+    const d = await res.json();
+    if (d.message && !String(d.message).includes("200")) throw new Error(d.message);
+
+    renderResult(d);
+  } catch (err) {
+    $("errorText").textContent = err.message;
+    $("errorCard").classList.add("active");
+    $("emptyState").classList.add("active");
+    $("lookupStatusPill").textContent = "Lookup failed";
+    $("lookupModePill").textContent = "Error";
+  } finally {
+    $("loadingCard").classList.remove("active");
+    searchBtn.disabled = false;
+  }
+}
+
+function fmt(n) {
+  return n != null ? Number(n).toLocaleString("en-US") : "—";
+}
+function truncate(s, n) {
+  const str = String(s || "");
+  return str.length > n ? str.slice(0, n - 1) + "…" : str;
+}
+function titleCase(s) {
+  return String(s || "").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+function buildBreakdownText(result) {
+  return [
+    `Rate Mode: ${RATE_MODES[result.selected.rateMode].label} (${formatMoney(result.selected.rate)}/hr)`,
+    `Service: ${result.selected.serviceType}`,
+    `Sqft Band: ${result.selected.bandId}`,
+    result.selected.sqft ? `Exact Sqft: ${result.selected.sqft}` : null,
+    `One-Time Before Fees: ${formatMoney(result.oneTime.beforeFees)}`,
+    `Admin Fee: ${formatMoney(result.oneTime.adminFee)}`,
+    `One-Time Total: ${formatMoney(result.oneTime.total)}`,
+    `Weekly: ${formatMoney(result.recurring.weekly.total)}`,
+    `Biweekly: ${formatMoney(result.recurring.biweekly.total)}`,
+    `Monthly: ${formatMoney(result.recurring.monthly.total)}`,
+    `Hours Estimate: ${result.oneTime.hoursEstimate}`,
+    ``,
+    `Line Items:`,
+    `- Base: ${formatMoney(result.breakdown.baseOneTimeBeforeFees)}`,
+    `- Dirt: ${formatMoney(result.breakdown.dirtCharge)}`,
+    `- Pets: ${formatMoney(result.breakdown.petCharge)}`,
+    `- Doors: ${formatMoney(result.breakdown.addOnBreakdown.doors)}`,
+    `- Windows: ${formatMoney(result.breakdown.addOnBreakdown.windows)}`,
+    `- Laundry: ${formatMoney(result.breakdown.addOnBreakdown.laundry)}`,
+    `- Fridge: ${formatMoney(result.breakdown.addOnBreakdown.fridge)}`,
+    `- Oven: ${formatMoney(result.breakdown.addOnBreakdown.oven)}`,
+    `- F&S: ${formatMoney(result.breakdown.addOnBreakdown.fAndS)}`,
+    `- Laundry + F&S: ${formatMoney(result.breakdown.addOnBreakdown.laundryAndFS)}`,
+    `- Add-ons Total: ${formatMoney(result.breakdown.addOnTotal)}`
+  ].filter(Boolean).join("\n");
+}
+
+
+function prefillFromLinkedContext() {
+  if (linkedContext.address && !addressInput.value.trim()) {
+    addressInput.value = linkedContext.address;
+  }
+  const chips = [];
+  if (linkedContext.clientName) chips.push(`Client: ${linkedContext.clientName}`);
+  if (linkedContext.clientEmail) chips.push(`Email: ${linkedContext.clientEmail}`);
+  if (linkedContext.clientPhone) chips.push(`Phone: ${linkedContext.clientPhone}`);
+  if (linkedContext.address) chips.push(`Address: ${linkedContext.address}`);
+  if (linkedContext.repName) chips.push(`Rep: ${linkedContext.repName}`);
+  if (!chips.length) return;
+  $("linkedContextCard").style.display = "grid";
+  $("linkedContextRow").innerHTML = chips.map((chip) => `<span class="context-chip">${chip}</span>`).join("");
+}
+
+function currentAddOnSummary() {
+  const inputs = readInputs();
+  return formatAddOnSummaryFromInputs(inputs.pets, inputs.addOns).text;
+}
+
+function persistQuoteContext(result) {
+  try {
+    const payload = {
+      clientName: linkedContext.clientName || "",
+      clientEmail: linkedContext.clientEmail || "",
+      clientPhone: linkedContext.clientPhone || "",
+      address: addressInput.value.trim() || $("resultAddress").textContent || linkedContext.address || "",
+      sqft: String(result.selected.sqft || "").trim(),
+      beds: $("statBeds").textContent === "—" ? "" : $("statBeds").textContent,
+      baths: $("statBaths").textContent === "—" ? "" : $("statBaths").textContent,
+      serviceType: result.selected.serviceType || "",
+      dirtLevel: String(result.selected.dirt || ""),
+      oneTimePrice: $("summaryOneTime").textContent || "",
+      weeklyPrice: $("summaryWeekly").textContent || "",
+      biweeklyPrice: $("summaryBiweekly").textContent || "",
+      monthlyPrice: $("summaryMonthly").textContent || "",
+      addOnSummary: currentAddOnSummary(),
+      updatedAt: new Date().toISOString(),
+    };
+    window.localStorage.setItem(QUOTE_CONTEXT_STORAGE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+prefillFromLinkedContext();
+init();
+</script>
+</body>
+</html>
