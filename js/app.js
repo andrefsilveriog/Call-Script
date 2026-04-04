@@ -1,4 +1,3 @@
-import { BRANCH_COLORS, DEFAULT_GROUPS } from "./defaults.js";
 import {
   isConfigured,
   subscribeToAuth,
@@ -8,9 +7,9 @@ import {
   saveWorkspace,
   seedWorkspaceIfEmpty,
 } from "./firebase-service.js";
+import { DEFAULT_GROUPS } from "./defaults.js";
 
 const root = document.getElementById("app");
-const importInputId = "workspace-import-input";
 
 const state = {
   user: null,
@@ -20,89 +19,25 @@ const state = {
   workspace: null,
   draft: null,
   editMode: false,
-  saving: false,
   dirty: false,
-  authMode: "signin",
-  authForm: { email: "", password: "" },
+  saving: false,
+  screen: "home",
+  activeGroupId: null,
   activeFlowId: null,
   activeStepId: null,
-  openGroupId: null,
+  authMode: "signin",
+  authForm: { email: "", password: "" },
   notice: null,
 };
 
-const themeTokens = {
-  dark: {
-    bg: "#111315",
-    panel: "#171a1d",
-    panel2: "#1c2024",
-    soft: "#20252a",
-    border: "#2b3138",
-    borderStrong: "#3a434d",
-    text: "#f2f4f6",
-    text2: "#c6ced6",
-    text3: "#8f9aa6",
-    accent: "#d7dde3",
-    accentText: "#111315",
-    chip: "#21262b",
-    shadow: "0 10px 28px rgba(0,0,0,0.18)",
-  },
-  light: {
-    bg: "#f2f4f7",
-    panel: "#ffffff",
-    panel2: "#fbfbfc",
-    soft: "#f5f6f7",
-    border: "#d7dce2",
-    borderStrong: "#c3c9d1",
-    text: "#101418",
-    text2: "#47505a",
-    text3: "#6b7785",
-    accent: "#171b20",
-    accentText: "#ffffff",
-    chip: "#f1f3f5",
-    shadow: "0 8px 24px rgba(15,23,42,0.08)",
-  },
+const BRANCH_TONES = {
+  flow: "var(--white)",
+  money: "#fff7ea",
+  decision: "#f4efff",
+  danger: "#fff0f0",
+  back: "#edf2f7",
+  success: "#ebfbf7",
 };
-
-function workspaceSource() {
-  return state.editMode ? state.draft : state.workspace;
-}
-
-function currentThemeName() {
-  return workspaceSource()?.theme || state.workspace?.theme || "dark";
-}
-
-function tokens() {
-  return themeTokens[currentThemeName()] || themeTokens.dark;
-}
-
-function setThemeVars() {
-  const t = tokens();
-  const map = {
-    "--bg": t.bg,
-    "--panel": t.panel,
-    "--panel-2": t.panel2,
-    "--soft": t.soft,
-    "--border": t.border,
-    "--border-strong": t.borderStrong,
-    "--text": t.text,
-    "--text-2": t.text2,
-    "--text-3": t.text3,
-    "--accent": t.accent,
-    "--accent-text": t.accentText,
-    "--chip": t.chip,
-    "--shadow": t.shadow,
-  };
-  Object.entries(map).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
-  document.documentElement.setAttribute("data-theme", currentThemeName());
-}
-
-function deepClone(v) {
-  return structuredClone(v);
-}
-
-function sortByOrder(items = []) {
-  return [...items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-}
 
 function escapeHtml(value = "") {
   return String(value)
@@ -115,6 +50,10 @@ function escapeHtml(value = "") {
 
 function renderText(value = "") {
   return escapeHtml(value).replaceAll("\n", "<br>");
+}
+
+function deepClone(value) {
+  return structuredClone(value);
 }
 
 function slugify(value) {
@@ -130,10 +69,10 @@ function slugify(value) {
 function uniqueId(base, items) {
   const ids = new Set(items.map((item) => item.id));
   let candidate = slugify(base);
-  let n = 2;
+  let index = 2;
   while (ids.has(candidate)) {
-    candidate = `${slugify(base)}-${n}`;
-    n += 1;
+    candidate = `${slugify(base)}-${index}`;
+    index += 1;
   }
   return candidate;
 }
@@ -142,56 +81,8 @@ function uid() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function ensureGroupList(groups = []) {
-  if (Array.isArray(groups) && groups.length) {
-    return sortByOrder(groups).map((group, index) => ({
-      id: group.id || `group-${index + 1}`,
-      name: group.name || `Group ${index + 1}`,
-      icon: group.icon || "🗂️",
-      order: index,
-    }));
-  }
-  return DEFAULT_GROUPS.map((group, index) => ({ ...group, order: index }));
-}
-
-function normalizeWorkspace(workspace) {
-  const groups = ensureGroupList(workspace?.groups || []);
-  const fallbackGroupId = groups[0]?.id || "general";
-  const flows = sortByOrder(workspace?.flows || []).map((flow, flowIndex) => ({
-    id: flow.id || `flow-${flowIndex + 1}`,
-    name: flow.name || "Untitled Flow",
-    icon: flow.icon || "📞",
-    desc: flow.desc || "",
-    groupId: groups.some((g) => g.id === flow.groupId) ? flow.groupId : fallbackGroupId,
-    order: flowIndex,
-    steps: sortByOrder(flow.steps || []).map((step, stepIndex) => ({
-      id: step.id || `step-${stepIndex + 1}`,
-      num: step.num || "",
-      label: step.label || "Untitled",
-      title: step.title || "Untitled Step",
-      subtitle: step.subtitle || "",
-      script: typeof step.script === "string" ? step.script : "",
-      toneCue: typeof step.toneCue === "string" ? step.toneCue : "",
-      keyPoints: Array.isArray(step.keyPoints) ? step.keyPoints : [],
-      branches: Array.isArray(step.branches) ? step.branches : [],
-      main: Boolean(step.main),
-      special: Boolean(step.special),
-      specialType: step.specialType || inferSpecialType(step),
-      parentId: step.parentId || null,
-      next: step.next || null,
-      guarantees: Array.isArray(step.guarantees) ? step.guarantees : [],
-      followUp: Array.isArray(step.followUp) ? step.followUp : [],
-      extra: step.extra && typeof step.extra === "object"
-        ? { title: step.extra.title || "Notes", items: Array.isArray(step.extra.items) ? step.extra.items : [] }
-        : null,
-      order: stepIndex,
-    })),
-  }));
-  return {
-    theme: workspace?.theme === "light" ? "light" : "dark",
-    groups,
-    flows,
-  };
+function sortByOrder(items = []) {
+  return [...items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 function inferSpecialType(step) {
@@ -200,46 +91,126 @@ function inferSpecialType(step) {
   return "standard";
 }
 
-function flowList() {
-  return workspaceSource()?.flows || [];
+function ensureGroups(groups = []) {
+  if (Array.isArray(groups) && groups.length) {
+    return sortByOrder(groups).map((group, index) => ({
+      id: group.id || `group-${index + 1}`,
+      name: group.name || `Group ${index + 1}`,
+      icon: group.icon || "📞",
+      order: index,
+    }));
+  }
+  return DEFAULT_GROUPS.map((group, index) => ({ ...group, order: index }));
+}
+
+function normalizeStep(step, index) {
+  return {
+    id: step.id || `step-${index + 1}`,
+    num: step.num || "",
+    label: step.label || "Untitled",
+    title: step.title || "Untitled Step",
+    subtitle: typeof step.subtitle === "string" ? step.subtitle : "",
+    script: typeof step.script === "string" ? step.script : "",
+    toneCue: typeof step.toneCue === "string" ? step.toneCue : "",
+    keyPoints: Array.isArray(step.keyPoints) ? step.keyPoints : [],
+    branches: Array.isArray(step.branches) ? step.branches : [],
+    main: Boolean(step.main),
+    special: Boolean(step.special),
+    specialType: step.specialType || inferSpecialType(step),
+    parentId: step.parentId || null,
+    next: step.next || null,
+    guarantees: Array.isArray(step.guarantees) ? step.guarantees : [],
+    followUp: Array.isArray(step.followUp) ? step.followUp : [],
+    extra: step.extra && typeof step.extra === "object"
+      ? { title: step.extra.title || "Notes", items: Array.isArray(step.extra.items) ? step.extra.items : [] }
+      : null,
+    order: Number.isFinite(step.order) ? step.order : index,
+  };
+}
+
+function normalizeWorkspace(workspace) {
+  const groups = ensureGroups(workspace?.groups || []);
+  const fallbackGroupId = groups[0]?.id || "general";
+  const flows = sortByOrder(workspace?.flows || []).map((flow, flowIndex) => ({
+    id: flow.id || `flow-${flowIndex + 1}`,
+    name: flow.name || "Untitled Flow",
+    icon: flow.icon || "📞",
+    desc: flow.desc || "",
+    groupId: groups.some((group) => group.id === flow.groupId) ? flow.groupId : fallbackGroupId,
+    order: flowIndex,
+    steps: sortByOrder(flow.steps || []).map((step, stepIndex) => normalizeStep(step, stepIndex)),
+  }));
+
+  const result = { theme: "light", groups, flows };
+  reindexWorkspace(result);
+  return result;
+}
+
+function workspaceSource() {
+  return state.editMode ? state.draft : state.workspace;
 }
 
 function groupList() {
   return workspaceSource()?.groups || [];
 }
 
-function currentFlow() {
-  return flowList().find((flow) => flow.id === state.activeFlowId) || flowList()[0] || null;
+function flowList() {
+  return workspaceSource()?.flows || [];
 }
 
-function currentGroup() {
-  const flow = currentFlow();
-  if (!flow) return groupList()[0] || null;
-  return groupList().find((group) => group.id === flow.groupId) || groupList()[0] || null;
+function currentFlow() {
+  return flowList().find((flow) => flow.id === state.activeFlowId) || flowList()[0] || null;
 }
 
 function currentStep() {
   const flow = currentFlow();
   if (!flow) return null;
-  return flow.steps.find((step) => step.id === state.activeStepId) || flow.steps[0] || null;
+  return flow.steps.find((step) => step.id === state.activeStepId) || topSteps(flow)[0] || flow.steps[0] || null;
+}
+
+function topSteps(flow = currentFlow()) {
+  if (!flow) return [];
+  return sortByOrder(flow.steps).filter((step) => step.main);
+}
+
+function displayStep(step = currentStep()) {
+  if (!step) return null;
+  if (!step.parentId) return step;
+  const flow = currentFlow();
+  return flow?.steps.find((candidate) => candidate.id === step.parentId) || step;
+}
+
+function stepIndexInfo(step = currentStep(), flow = currentFlow()) {
+  if (!step || !flow) return { position: 0, total: 0 };
+  const steps = topSteps(flow);
+  const baseId = step.parentId || step.id;
+  const index = steps.findIndex((item) => item.id === baseId);
+  return { position: index >= 0 ? index + 1 : 0, total: steps.length };
 }
 
 function syncSelection() {
+  const groups = groupList();
   const flows = flowList();
+  if (!groups.length) state.activeGroupId = null;
+  else if (!groups.some((group) => group.id === state.activeGroupId)) state.activeGroupId = groups[0].id;
+
   if (!flows.length) {
     state.activeFlowId = null;
     state.activeStepId = null;
+    state.screen = "home";
     return;
   }
+
   const flow = flows.find((item) => item.id === state.activeFlowId) || flows[0];
   state.activeFlowId = flow.id;
+
   const steps = flow.steps || [];
   if (!steps.length) {
     state.activeStepId = null;
     return;
   }
-  const step = steps.find((item) => item.id === state.activeStepId) || steps[0];
-  state.activeStepId = step.id;
+  const preferred = steps.find((item) => item.id === state.activeStepId) || topSteps(flow)[0] || steps[0];
+  state.activeStepId = preferred.id;
 }
 
 function notify(message, tone = "info") {
@@ -249,1179 +220,1099 @@ function notify(message, tone = "info") {
   notify.timer = window.setTimeout(() => {
     state.notice = null;
     render();
-  }, 2800);
+  }, 2600);
 }
 
-function pathGet(obj, path) {
-  return path.split("|").reduce((cursor, part) => {
-    if (cursor == null) return undefined;
-    if (/^\d+$/.test(part)) return cursor[Number(part)];
-    return cursor[part];
-  }, obj);
-}
-
-function pathSet(obj, path, value) {
-  const parts = path.split("|");
-  let cursor = obj;
-  for (let i = 0; i < parts.length - 1; i += 1) {
-    const key = /^\d+$/.test(parts[i]) ? Number(parts[i]) : parts[i];
-    cursor = cursor[key];
-  }
-  const last = /^\d+$/.test(parts.at(-1)) ? Number(parts.at(-1)) : parts.at(-1);
-  cursor[last] = value;
-}
-
-function bindingValue(path) {
-  const source = state.editMode ? state.draft : state.workspace;
-  return source ? pathGet(source, path) : "";
-}
-
-function makeInput(path, value, options = {}) {
-  const { textarea = false, rows = 4, placeholder = "", cls = "field-input", type = "text" } = options;
-  if (!state.editMode) {
-    if (textarea || String(value || "").includes("\n")) {
-      return `<div class="display-block ${value ? "" : "empty"}">${value ? renderText(value) : '<span>—</span>'}</div>`;
+function reindexFlow(flow) {
+  flow.steps = sortByOrder(flow.steps || []).map((step, index) => ({ ...step, order: index }));
+  let counter = 1;
+  flow.steps = flow.steps.map((step) => {
+    if (step.main) {
+      return { ...step, num: String(counter++).padStart(2, "0") };
     }
-    return `<div class="display-inline ${value ? "" : "empty"}">${value ? escapeHtml(value) : '<span>—</span>'}</div>`;
-  }
-  const common = `data-bind="${escapeHtml(path)}" class="${cls}" placeholder="${escapeHtml(placeholder)}"`;
-  if (textarea) return `<textarea ${common} rows="${rows}">${escapeHtml(value || "")}</textarea>`;
-  return `<input ${common} type="${type}" value="${escapeHtml(value || "")}" />`;
+    return { ...step, num: step.num || "" };
+  });
 }
 
-function makeSelect(path, value, options, cls = "field-input") {
-  if (!state.editMode) {
-    const found = options.find((option) => option.value === value);
-    return `<div class="display-inline ${found ? "" : "empty"}">${escapeHtml(found?.label || "—")}</div>`;
-  }
-  return `
-    <select data-bind="${escapeHtml(path)}" class="${cls}">
-      ${options
-        .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
-        .join("")}
-    </select>
-  `;
+function reindexWorkspace(workspace) {
+  workspace.groups = sortByOrder(workspace.groups || []).map((group, index) => ({ ...group, order: index }));
+  workspace.flows = sortByOrder(workspace.flows || []).map((flow, index) => {
+    const next = { ...flow, order: index, steps: sortByOrder(flow.steps || []) };
+    reindexFlow(next);
+    return next;
+  });
 }
 
-function renderAuthScreen() {
-  const modeLabel = state.authMode === "signin" ? "Sign in" : "Create account";
-  const submitLabel = state.authPending ? "Working…" : modeLabel;
-  return `
-    <div class="auth-wrap">
-      <div class="auth-card panel">
-        <div class="auth-head">
-          <div>
-            <h1>Call script app</h1>
-            <p>Email and password only. Nothing fancy.</p>
-          </div>
-        </div>
-        <div class="auth-switch">
-          <button type="button" class="tab-btn ${state.authMode === "signin" ? "active" : ""}" data-action="set-auth-mode" data-mode="signin">Sign in</button>
-          <button type="button" class="tab-btn ${state.authMode === "signup" ? "active" : ""}" data-action="set-auth-mode" data-mode="signup">Create account</button>
-        </div>
-        <form id="auth-form" class="auth-form" autocomplete="on">
-          <label>
-            <span>Email</span>
-            <input name="email" type="email" autocomplete="username" value="${escapeHtml(state.authForm.email)}" required />
-          </label>
-          <label>
-            <span>Password</span>
-            <input name="password" type="password" autocomplete="current-password" value="${escapeHtml(state.authForm.password)}" required />
-          </label>
-          <button class="primary-btn auth-submit" ${state.authPending ? "disabled" : ""}>${submitLabel}</button>
-        </form>
-        ${state.notice ? `<div class="notice ${state.notice.tone}">${escapeHtml(state.notice.message)}</div>` : ""}
-      </div>
-    </div>
-  `;
-}
-
-function renderLoadingScreen(text = "Loading…") {
-  return `<div class="auth-wrap"><div class="loading-card panel"><p>${escapeHtml(text)}</p></div></div>`;
-}
-
-function renderTopNav() {
-  const groups = groupList();
-  const activeFlow = currentFlow();
-  return `
-    <div class="group-row">
-      ${groups.map((group) => {
-        const flows = flowList().filter((flow) => flow.groupId === group.id);
-        const active = activeFlow?.groupId === group.id;
-        const open = state.openGroupId === group.id;
-        const activeName = active ? activeFlow?.name : (flows[0]?.name || "No flows");
-        return `
-          <div class="group-nav">
-            <button class="group-btn ${active ? "active" : ""}" data-action="toggle-group-menu" data-group-id="${escapeHtml(group.id)}">
-              <span class="group-btn-icon">${escapeHtml(group.icon || "•")}</span>
-              <span class="group-btn-copy">
-                <strong>${escapeHtml(group.name)}</strong>
-                <small>${escapeHtml(activeName || "")}</small>
-              </span>
-              <span class="caret">▾</span>
-            </button>
-            <div class="group-menu ${open ? "open" : ""}">
-              ${flows.length
-                ? flows
-                    .map(
-                      (flow) => `
-                      <button class="menu-item ${flow.id === activeFlow?.id ? "active" : ""}" data-action="select-flow" data-flow-id="${escapeHtml(flow.id)}">
-                        <span>${escapeHtml(flow.icon || "•")}</span>
-                        <span>
-                          <strong>${escapeHtml(flow.name)}</strong>
-                          <small>${escapeHtml(flow.desc || "")}</small>
-                        </span>
-                      </button>
-                    `,
-                    )
-                    .join("")
-                : `<div class="menu-empty">No call types in this group yet.</div>`}
-            </div>
-          </div>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
-
-function renderSidebar() {
-  const flow = currentFlow();
-  if (!flow) {
-    return `<aside class="sidebar panel"><p>No call types yet.</p></aside>`;
-  }
-  const steps = sortByOrder(flow.steps || []);
-  return `
-    <aside class="sidebar panel">
-      <div class="sidebar-top">
-        <div>
-          <div class="muted-label">Call type</div>
-          <h2>${escapeHtml(flow.icon || "")}&nbsp;${escapeHtml(flow.name)}</h2>
-          ${flow.desc ? `<p>${escapeHtml(flow.desc)}</p>` : ""}
-        </div>
-        ${state.editMode ? `<button class="secondary-btn" data-action="add-step">Add step</button>` : ""}
-      </div>
-      <div class="step-list">
-        ${steps.length
-          ? steps
-              .map((step, index) => `
-                <div class="step-row ${step.id === state.activeStepId ? "active" : ""}">
-                  <button class="step-link" data-action="select-step" data-step-id="${escapeHtml(step.id)}">
-                    <span class="step-num">${escapeHtml(step.num || String(index + 1).padStart(2, "0"))}</span>
-                    <span class="step-copy">
-                      <strong>${escapeHtml(step.label || step.title)}</strong>
-                      <small>${escapeHtml(step.title || "")}</small>
-                    </span>
-                  </button>
-                  ${state.editMode
-                    ? `<div class="row-actions">
-                        <button class="icon-btn" title="Move up" data-action="move-step" data-direction="up" data-step-id="${escapeHtml(step.id)}">↑</button>
-                        <button class="icon-btn" title="Move down" data-action="move-step" data-direction="down" data-step-id="${escapeHtml(step.id)}">↓</button>
-                      </div>`
-                    : ""}
-                </div>
-              `)
-              .join("")
-          : `<p class="empty-text">No steps yet.</p>`}
-      </div>
-    </aside>
-  `;
-}
-
-function renderFlowManager(flow) {
-  const groupOptions = groupList().map((group) => ({ value: group.id, label: `${group.icon} ${group.name}` }));
-  return `
-    <section class="manager panel">
-      <div class="section-head">
-        <h3>Call type setup</h3>
-        <div class="tool-row">
-          <button class="secondary-btn" data-action="add-group">Add group</button>
-          <button class="secondary-btn" data-action="add-flow">Add call type</button>
-          ${flow ? `<button class="secondary-btn" data-action="duplicate-flow">Duplicate call type</button>
-          <button class="danger-btn" data-action="delete-flow">Delete call type</button>` : ""}
-        </div>
-      </div>
-      <div class="manager-grid groups-grid">
-        ${groupList()
-          .map(
-            (group, index) => `
-            <div class="group-edit-row">
-              <div class="group-edit-fields">
-                ${makeInput(`groups|${index}|icon`, group.icon || "", { placeholder: "Icon", cls: "tiny-input" })}
-                ${makeInput(`groups|${index}|name`, group.name || "", { placeholder: "Group name" })}
-              </div>
-              <div class="row-actions">
-                <button class="icon-btn" data-action="move-group" data-direction="up" data-group-id="${escapeHtml(group.id)}">↑</button>
-                <button class="icon-btn" data-action="move-group" data-direction="down" data-group-id="${escapeHtml(group.id)}">↓</button>
-                <button class="icon-btn danger" data-action="delete-group" data-group-id="${escapeHtml(group.id)}">✕</button>
-              </div>
-            </div>
-          `,
-          )
-          .join("")}
-      </div>
-      ${flow
-        ? `
-          <div class="manager-grid flow-grid">
-            <label><span>Name</span>${makeInput(`flows|${flowList().findIndex((item) => item.id === flow.id)}|name`, flow.name || "")}</label>
-            <label><span>Icon</span>${makeInput(`flows|${flowList().findIndex((item) => item.id === flow.id)}|icon`, flow.icon || "", { placeholder: "📞" })}</label>
-            <label class="span-2"><span>Description</span>${makeInput(`flows|${flowList().findIndex((item) => item.id === flow.id)}|desc`, flow.desc || "")}</label>
-            <label class="span-2"><span>Group</span>${makeSelect(`flows|${flowList().findIndex((item) => item.id === flow.id)}|groupId`, flow.groupId, groupOptions)}</label>
-          </div>
-        `
-        : ""}
-    </section>
-  `;
-}
-
-function renderBranchChips(step) {
-  if (!step.branches?.length) return `<p class="empty-text">No branch buttons.</p>`;
-  return `
-    <div class="branch-list">
-      ${step.branches
-        .map((branch) => {
-          const flow = currentFlow();
-          const target = flow?.steps?.find((item) => item.id === branch.targetId);
-          return `<button class="branch-chip" data-action="select-step" data-step-id="${escapeHtml(branch.targetId)}">${escapeHtml(branch.label)}${target ? ` → ${escapeHtml(target.label || target.title)}` : ""}</button>`;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-function renderStepEditor(step, flowIndex, stepIndex) {
-  const flow = currentFlow();
-  const stepOptions = (flow?.steps || []).map((item) => ({ value: item.id, label: `${item.num || ""} ${item.label || item.title}`.trim() }));
-  const specialTypeOptions = [
-    { value: "standard", label: "Standard" },
-    { value: "guarantees", label: "Guarantees" },
-    { value: "followup", label: "Follow-up cadence" },
-  ];
-
-  const specialType = step.specialType || inferSpecialType(step);
-  const keyPoints = step.keyPoints || [];
-  const extraItems = step.extra?.items || [];
-  const guarantees = step.guarantees || [];
-  const followUp = step.followUp || [];
-
-  return `
-    <section class="step-panel panel">
-      <div class="section-head">
-        <div>
-          <div class="muted-label">Step</div>
-          <h1>${state.editMode ? escapeHtml(step.title || "Untitled Step") : escapeHtml(step.title || "Untitled Step")}</h1>
-          ${step.subtitle ? `<p>${escapeHtml(step.subtitle)}</p>` : ""}
-        </div>
-        <div class="tool-row">
-          ${state.editMode ? `<button class="secondary-btn" data-action="duplicate-step">Duplicate step</button>
-          <button class="danger-btn" data-action="delete-step">Delete step</button>` : ""}
-        </div>
-      </div>
-
-      <div class="field-grid">
-        <label><span>Step number</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|num`, step.num || "")}</label>
-        <label><span>Sidebar label</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|label`, step.label || "")}</label>
-        <label class="span-2"><span>Title</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|title`, step.title || "")}</label>
-        <label class="span-2"><span>Subtitle</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|subtitle`, step.subtitle || "")}</label>
-      </div>
-
-      ${state.editMode
-        ? `
-          <div class="field-grid compact-grid">
-            <label><span>Template</span>${makeSelect(`flows|${flowIndex}|steps|${stepIndex}|specialType`, specialType, specialTypeOptions)}</label>
-            <label><span>Main step</span>${makeSelect(`flows|${flowIndex}|steps|${stepIndex}|main`, String(step.main), [
-              { value: "true", label: "Yes" },
-              { value: "false", label: "No" },
-            ])}</label>
-            <label><span>Parent step</span>${makeSelect(`flows|${flowIndex}|steps|${stepIndex}|parentId`, step.parentId || "", [{ value: "", label: "None" }, ...stepOptions])}</label>
-            <label><span>Next step</span>${makeSelect(`flows|${flowIndex}|steps|${stepIndex}|next`, step.next || "", [{ value: "", label: "None" }, ...stepOptions])}</label>
-          </div>
-        `
-        : ""}
-
-      ${specialType === "standard" ? `
-        <div class="content-section">
-          <div class="muted-label">Script</div>
-          ${makeInput(`flows|${flowIndex}|steps|${stepIndex}|script`, step.script || "", { textarea: true, rows: 7 })}
-        </div>
-        <div class="content-section">
-          <div class="section-subhead">
-            <div class="muted-label">Key points</div>
-            ${state.editMode ? `<button class="secondary-btn" data-action="add-key-point">Add point</button>` : ""}
-          </div>
-          ${keyPoints.length
-            ? `<div class="stack-list">
-                ${keyPoints
-                  .map(
-                    (point, index) => `
-                      <div class="stack-row">
-                        ${makeInput(`flows|${flowIndex}|steps|${stepIndex}|keyPoints|${index}`, point || "")}
-                        ${state.editMode ? `<button class="icon-btn danger" data-action="remove-key-point" data-index="${index}">✕</button>` : ""}
-                      </div>
-                    `,
-                  )
-                  .join("")}
-              </div>`
-            : `<p class="empty-text">No key points.</p>`}
-        </div>
-        <div class="content-section">
-          <div class="section-subhead">
-            <div class="muted-label">Notes</div>
-            ${state.editMode ? `<button class="secondary-btn" data-action="toggle-extra">${step.extra ? "Remove notes" : "Add notes"}</button>` : ""}
-          </div>
-          ${step.extra
-            ? `
-              <div class="stack-list">
-                <label><span>Notes title</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|extra|title`, step.extra.title || "")}</label>
-                ${extraItems
-                  .map(
-                    (item, index) => `
-                      <div class="stack-row">
-                        ${makeInput(`flows|${flowIndex}|steps|${stepIndex}|extra|items|${index}`, item || "")}
-                        ${state.editMode ? `<button class="icon-btn danger" data-action="remove-extra-item" data-index="${index}">✕</button>` : ""}
-                      </div>
-                    `,
-                  )
-                  .join("")}
-                ${state.editMode ? `<button class="secondary-btn" data-action="add-extra-item">Add note</button>` : ""}
-              </div>
-            `
-            : `<p class="empty-text">No notes.</p>`}
-        </div>
-      ` : ""}
-
-      ${specialType === "guarantees" ? `
-        <div class="content-section">
-          <div class="section-subhead">
-            <div class="muted-label">Guarantees</div>
-            ${state.editMode ? `<button class="secondary-btn" data-action="add-guarantee">Add guarantee</button>` : ""}
-          </div>
-          ${guarantees.length
-            ? guarantees
-                .map(
-                  (item, index) => `
-                    <div class="panel inset">
-                      <div class="stack-row">
-                        <label><span>Name</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|guarantees|${index}|name`, item.name || "")}</label>
-                        <label><span>Color</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|guarantees|${index}|color`, item.color || "")}</label>
-                        ${state.editMode ? `<button class="icon-btn danger align-end" data-action="remove-guarantee" data-index="${index}">✕</button>` : ""}
-                      </div>
-                      <label><span>Script</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|guarantees|${index}|script`, item.script || "", { textarea: true, rows: 5 })}</label>
-                    </div>
-                  `,
-                )
-                .join("")
-            : `<p class="empty-text">No guarantees.</p>`}
-        </div>
-      ` : ""}
-
-      ${specialType === "followup" ? `
-        <div class="content-section">
-          <div class="section-subhead">
-            <div class="muted-label">Follow-up blocks</div>
-            ${state.editMode ? `<button class="secondary-btn" data-action="add-followup">Add block</button>` : ""}
-          </div>
-          ${followUp.length
-            ? followUp
-                .map(
-                  (item, index) => `
-                    <div class="panel inset">
-                      <div class="stack-row">
-                        <label><span>Label</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|followUp|${index}|day`, item.day || "")}</label>
-                        ${state.editMode ? `<button class="icon-btn danger align-end" data-action="remove-followup" data-index="${index}">✕</button>` : ""}
-                      </div>
-                      <label><span>Content</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|followUp|${index}|content`, item.content || "", { textarea: true, rows: 5 })}</label>
-                    </div>
-                  `,
-                )
-                .join("")
-            : `<p class="empty-text">No follow-up blocks.</p>`}
-        </div>
-      ` : ""}
-
-      <div class="content-section">
-        <div class="section-subhead">
-          <div class="muted-label">Branches</div>
-          ${state.editMode ? `<button class="secondary-btn" data-action="add-branch">Add branch</button>` : ""}
-        </div>
-        ${state.editMode
-          ? `${(step.branches || []).length
-              ? `<div class="stack-list">
-                  ${(step.branches || [])
-                    .map(
-                      (branch, index) => `
-                        <div class="branch-edit-row">
-                          <label><span>Label</span>${makeInput(`flows|${flowIndex}|steps|${stepIndex}|branches|${index}|label`, branch.label || "")}</label>
-                          <label><span>Target</span>${makeSelect(`flows|${flowIndex}|steps|${stepIndex}|branches|${index}|targetId`, branch.targetId || "", [{ value: "", label: "Choose step" }, ...stepOptions])}</label>
-                          <label><span>Color</span>${makeSelect(
-                            `flows|${flowIndex}|steps|${stepIndex}|branches|${index}|color`,
-                            branch.color || "flow",
-                            Object.keys(BRANCH_COLORS).map((key) => ({ value: key, label: key }))
-                          )}</label>
-                          <button class="icon-btn danger align-end" data-action="remove-branch" data-index="${index}">✕</button>
-                        </div>
-                      `,
-                    )
-                    .join("")}
-                </div>`
-              : `<p class="empty-text">No branch buttons.</p>`}`
-          : renderBranchChips(step)}
-      </div>
-
-      <div class="content-section">
-        <div class="muted-label">Tone cue</div>
-        ${makeInput(`flows|${flowIndex}|steps|${stepIndex}|toneCue`, step.toneCue || "", { textarea: true, rows: 3 })}
-      </div>
-    </section>
-  `;
-}
-
-function renderShell() {
-  const flow = currentFlow();
-  const step = currentStep();
-  const flowIndex = flowList().findIndex((item) => item.id === flow?.id);
-  const stepIndex = flow?.steps?.findIndex((item) => item.id === step?.id) ?? -1;
-
-  return `
-    <div class="app-shell">
-      <header class="topbar panel">
-        <div class="brand-block">
-          <strong>Call script</strong>
-        </div>
-        <div class="topbar-main">${renderTopNav()}</div>
-        <div class="topbar-actions">
-          ${state.editMode ? `<button class="secondary-btn" data-action="discard-edit">Discard</button>` : ""}
-          <button class="secondary-btn" data-action="toggle-theme">${currentThemeName() === "dark" ? "Light" : "Dark"}</button>
-          <button class="secondary-btn" data-action="export-json">Export</button>
-          <button class="secondary-btn" data-action="trigger-import">Import</button>
-          <button class="secondary-btn" data-action="reset-browser-data">Reset local data</button>
-          <button class="secondary-btn" data-action="sign-out">Sign out</button>
-          <input id="${importInputId}" type="file" accept="application/json" hidden />
-        </div>
-      </header>
-
-      <div class="page-grid">
-        ${renderSidebar()}
-        <main class="main-column">
-          ${state.editMode ? renderFlowManager(flow) : ""}
-          ${flow && step ? renderStepEditor(step, flowIndex, stepIndex) : `<section class="panel"><p>No step selected.</p></section>`}
-        </main>
-      </div>
-
-      <button class="fab" data-action="toggle-edit" ${state.saving ? "disabled" : ""}>${state.editMode ? (state.saving ? "…" : "✓") : "✎"}</button>
-      ${state.notice ? `<div class="toast ${state.notice.tone}">${escapeHtml(state.notice.message)}</div>` : ""}
-    </div>
-  `;
-}
-
-function render() {
-  setThemeVars();
-  if (!isConfigured()) {
-    root.innerHTML = renderLoadingScreen("Firebase config missing.");
-    attachRootListeners();
-    return;
-  }
-  if (!state.authReady) {
-    root.innerHTML = renderLoadingScreen("Checking sign-in…");
-    attachRootListeners();
-    return;
-  }
-  if (!state.user) {
-    root.innerHTML = renderAuthScreen();
-    attachRootListeners();
-    return;
-  }
-  if (state.workspaceLoading || !state.workspace) {
-    root.innerHTML = renderLoadingScreen("Loading workspace…");
-    attachRootListeners();
-    return;
-  }
-  root.innerHTML = renderShell();
-  attachRootListeners();
-}
-
-function prepareDraft() {
-  if (!state.editMode) return;
-  if (!state.draft) state.draft = deepClone(state.workspace);
-}
-
-function startEdit() {
-  state.editMode = true;
-  state.draft = deepClone(state.workspace);
-  state.dirty = false;
-  state.openGroupId = null;
+function updateDraft(mutator, shouldRender = true) {
+  if (!state.editMode || !state.draft) return;
+  mutator(state.draft);
+  reindexWorkspace(state.draft);
   syncSelection();
+  state.dirty = true;
+  if (shouldRender) render();
+}
+
+function flowById(workspace, flowId) {
+  return workspace?.flows?.find((flow) => flow.id === flowId) || null;
+}
+
+function stepById(flow, stepId) {
+  return flow?.steps?.find((step) => step.id === stepId) || null;
+}
+
+function selectFlow(flowId) {
+  state.activeFlowId = flowId;
+  state.screen = "flow";
+  const flow = currentFlow();
+  state.activeStepId = topSteps(flow)[0]?.id || flow?.steps?.[0]?.id || null;
   render();
 }
 
-async function saveEdit() {
-  if (!state.editMode || !state.draft || !state.user) return;
-  state.saving = true;
-  render();
+async function toggleEditMode() {
+  if (!state.user) return;
+  if (!state.editMode) {
+    state.draft = deepClone(state.workspace);
+    state.editMode = true;
+    state.dirty = false;
+    render();
+    return;
+  }
+
+  if (state.saving || !state.draft) return;
   try {
-    const normalized = normalizeWorkspace(state.draft);
-    await saveWorkspace(state.user.uid, normalized);
-    state.workspace = normalized;
+    state.saving = true;
+    render();
+    reindexWorkspace(state.draft);
+    await saveWorkspace(state.user.uid, state.draft);
+    state.workspace = normalizeWorkspace(state.draft);
     state.draft = null;
     state.editMode = false;
     state.dirty = false;
     syncSelection();
-    notify("Saved.", "success");
+    notify("Changes saved.", "success");
   } catch (error) {
     console.error(error);
+    notify(error.message || "Could not save changes.", "error");
+  } finally {
     state.saving = false;
-    notify(error.message || "Could not save.", "error");
     render();
-    return;
   }
-  state.saving = false;
-  render();
 }
 
-function discardEdit() {
-  state.editMode = false;
-  state.draft = null;
-  state.dirty = false;
-  render();
+function currentBuilderStep() {
+  const flow = flowById(state.draft, state.activeFlowId);
+  return stepById(flow, state.activeStepId);
 }
 
-function currentDraftWorkspace() {
-  return state.editMode ? state.draft : state.workspace;
+function createMainStep() {
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    if (!flow) return;
+    const step = {
+      id: uniqueId(`step-${uid()}`, flow.steps),
+      label: "New Step",
+      title: "New Step",
+      subtitle: "",
+      script: "",
+      toneCue: "",
+      keyPoints: [],
+      branches: [],
+      main: true,
+      special: false,
+      specialType: "standard",
+      parentId: null,
+      next: null,
+      guarantees: [],
+      followUp: [],
+      extra: null,
+      order: flow.steps.length,
+    };
+    flow.steps.push(step);
+    state.activeStepId = step.id;
+  });
 }
 
-function currentDraftFlow() {
-  return currentDraftWorkspace()?.flows?.find((flow) => flow.id === state.activeFlowId) || null;
+function createBranchStep() {
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    if (!flow) return;
+    const active = stepById(flow, state.activeStepId);
+    if (!active) return;
+    const parent = active.parentId ? stepById(flow, active.parentId) : active;
+    if (!parent) return;
+    const step = {
+      id: uniqueId(`branch-${uid()}`, flow.steps),
+      label: "New Branch",
+      title: "New Branch",
+      subtitle: "",
+      script: "",
+      toneCue: "",
+      keyPoints: [],
+      branches: [],
+      main: false,
+      special: false,
+      specialType: "standard",
+      parentId: parent.id,
+      next: null,
+      guarantees: [],
+      followUp: [],
+      extra: null,
+      order: flow.steps.length,
+    };
+    flow.steps.push(step);
+    parent.branches = [...(parent.branches || []), { label: "New Branch", color: "decision", targetId: step.id }];
+    state.activeStepId = step.id;
+  });
 }
 
-function currentDraftStep() {
-  const flow = currentDraftFlow();
-  return flow?.steps?.find((step) => step.id === state.activeStepId) || null;
+function createSpecialStep(type) {
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    if (!flow) return;
+    const step = {
+      id: uniqueId(`${type}-${uid()}`, flow.steps),
+      label: type === "guarantees" ? "Guarantees" : "Follow-Up",
+      title: type === "guarantees" ? "Guarantees" : "Follow-Up",
+      subtitle: "",
+      script: "",
+      toneCue: "",
+      keyPoints: [],
+      branches: [],
+      main: true,
+      special: true,
+      specialType: type,
+      parentId: null,
+      next: null,
+      guarantees: type === "guarantees" ? [{ name: "Guarantee", script: "" }] : [],
+      followUp: type === "followup" ? [{ day: "Day 1", content: "" }] : [],
+      extra: null,
+      order: flow.steps.length,
+    };
+    flow.steps.push(step);
+    state.activeStepId = step.id;
+  });
 }
 
-function reindexWorkspace(workspace) {
-  workspace.groups = workspace.groups.map((group, index) => ({ ...group, order: index }));
-  workspace.flows = workspace.flows.map((flow, index) => ({
-    ...flow,
-    order: index,
-    steps: sortByOrder(flow.steps || []).map((step, stepIndex) => ({ ...step, order: stepIndex })),
-  }));
+function duplicateCurrentStep() {
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    const source = stepById(flow, state.activeStepId);
+    if (!flow || !source) return;
+    const clone = deepClone(source);
+    clone.id = uniqueId(`${source.label || source.title}-copy`, flow.steps);
+    clone.label = `${source.label || source.title} Copy`;
+    clone.title = `${source.title || source.label} Copy`;
+    clone.order = (source.order ?? flow.steps.length) + 0.5;
+    clone.branches = Array.isArray(clone.branches) ? clone.branches.map((branch) => ({ ...branch })) : [];
+    flow.steps.push(clone);
+    state.activeStepId = clone.id;
+  });
 }
 
-function markDirty() {
+function deleteCurrentStep() {
   if (!state.editMode) return;
-  reindexWorkspace(state.draft);
-  state.dirty = true;
-}
+  const source = currentBuilderStep();
+  if (!source) return;
+  const message = `Delete ${source.title || source.label}?`;
+  if (!window.confirm(message)) return;
 
-function addGroup() {
-  prepareDraft();
-  const groups = state.draft.groups;
-  const id = uniqueId("group", groups);
-  groups.push({ id, name: "New group", icon: "🗂️", order: groups.length });
-  markDirty();
-  render();
-}
-
-function deleteGroup(groupId) {
-  prepareDraft();
-  if (state.draft.groups.length === 1) {
-    notify("You need at least one group.", "warn");
-    return;
-  }
-  const targetIndex = state.draft.groups.findIndex((group) => group.id === groupId);
-  if (targetIndex < 0) return;
-  const fallbackGroup = state.draft.groups.find((group) => group.id !== groupId);
-  state.draft.flows.forEach((flow) => {
-    if (flow.groupId === groupId) flow.groupId = fallbackGroup.id;
-  });
-  state.draft.groups.splice(targetIndex, 1);
-  if (state.openGroupId === groupId) state.openGroupId = null;
-  markDirty();
-  render();
-}
-
-function moveGroup(groupId, direction) {
-  prepareDraft();
-  const index = state.draft.groups.findIndex((group) => group.id === groupId);
-  if (index < 0) return;
-  const nextIndex = direction === "up" ? index - 1 : index + 1;
-  if (nextIndex < 0 || nextIndex >= state.draft.groups.length) return;
-  const [item] = state.draft.groups.splice(index, 1);
-  state.draft.groups.splice(nextIndex, 0, item);
-  markDirty();
-  render();
-}
-
-function addFlow() {
-  prepareDraft();
-  const groupId = currentGroup()?.id || state.draft.groups[0]?.id;
-  const id = uniqueId("call-type", state.draft.flows);
-  const flow = {
-    id,
-    name: "New call type",
-    icon: "📞",
-    desc: "",
-    groupId,
-    order: state.draft.flows.length,
-    steps: [
-      {
-        id: `step-${uid()}`,
-        num: "01",
-        label: "Open",
-        title: "Opening",
-        subtitle: "",
-        script: "",
-        toneCue: "",
-        keyPoints: [],
-        branches: [],
-        main: true,
-        special: false,
-        specialType: "standard",
-        parentId: null,
-        next: null,
-        guarantees: [],
-        followUp: [],
-        extra: null,
-        order: 0,
-      },
-    ],
-  };
-  state.draft.flows.push(flow);
-  state.activeFlowId = id;
-  state.activeStepId = flow.steps[0].id;
-  state.openGroupId = groupId;
-  markDirty();
-  render();
-}
-
-function duplicateFlow() {
-  prepareDraft();
-  const flow = currentDraftFlow();
-  if (!flow) return;
-  const copy = deepClone(flow);
-  copy.id = uniqueId(`${flow.name || "call-type"}-copy`, state.draft.flows);
-  copy.name = `${flow.name} Copy`;
-  copy.steps = copy.steps.map((step, index) => ({ ...step, id: `${step.id}-${uid()}`, order: index }));
-  const oldToNew = new Map();
-  flow.steps.forEach((step, index) => oldToNew.set(step.id, copy.steps[index].id));
-  copy.steps.forEach((step) => {
-    if (step.parentId && oldToNew.has(step.parentId)) step.parentId = oldToNew.get(step.parentId);
-    if (step.next && oldToNew.has(step.next)) step.next = oldToNew.get(step.next);
-    step.branches = (step.branches || []).map((branch) => ({
-      ...branch,
-      targetId: oldToNew.get(branch.targetId) || branch.targetId,
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    if (!flow) return;
+    const targetIds = new Set([source.id]);
+    if (source.main) {
+      flow.steps.filter((step) => step.parentId === source.id).forEach((step) => targetIds.add(step.id));
+    }
+    flow.steps = flow.steps.filter((step) => !targetIds.has(step.id));
+    flow.steps = flow.steps.map((step) => ({
+      ...step,
+      next: targetIds.has(step.next) ? null : step.next,
+      branches: (step.branches || []).filter((branch) => !targetIds.has(branch.targetId)),
     }));
+    state.activeStepId = topSteps(flow)[0]?.id || flow.steps[0]?.id || null;
   });
-  state.draft.flows.push(copy);
-  state.activeFlowId = copy.id;
-  state.activeStepId = copy.steps[0]?.id || null;
-  markDirty();
-  render();
 }
 
-function deleteFlow() {
-  prepareDraft();
-  const index = state.draft.flows.findIndex((flow) => flow.id === state.activeFlowId);
-  if (index < 0) return;
-  state.draft.flows.splice(index, 1);
-  if (!state.draft.flows.length) {
-    addFlow();
-    return;
-  }
-  const flow = state.draft.flows[Math.max(0, index - 1)] || state.draft.flows[0];
-  state.activeFlowId = flow.id;
-  state.activeStepId = flow.steps[0]?.id || null;
-  markDirty();
-  render();
-}
-
-function addStep() {
-  prepareDraft();
-  const flow = currentDraftFlow();
-  if (!flow) return;
-  const newStep = {
-    id: `step-${uid()}`,
-    num: String((flow.steps?.length || 0) + 1).padStart(2, "0"),
-    label: "New step",
-    title: "New step",
-    subtitle: "",
-    script: "",
-    toneCue: "",
-    keyPoints: [],
-    branches: [],
-    main: true,
-    special: false,
-    specialType: "standard",
-    parentId: null,
-    next: null,
-    guarantees: [],
-    followUp: [],
-    extra: null,
-    order: flow.steps.length,
-  };
-  flow.steps.push(newStep);
-  state.activeStepId = newStep.id;
-  markDirty();
-  render();
-}
-
-function duplicateStep() {
-  prepareDraft();
-  const flow = currentDraftFlow();
-  const step = currentDraftStep();
-  if (!flow || !step) return;
-  const index = flow.steps.findIndex((item) => item.id === step.id);
-  const copy = deepClone(step);
-  copy.id = `step-${uid()}`;
-  copy.label = `${step.label} Copy`;
-  copy.title = `${step.title} Copy`;
-  flow.steps.splice(index + 1, 0, copy);
-  state.activeStepId = copy.id;
-  markDirty();
-  render();
-}
-
-function deleteStep() {
-  prepareDraft();
-  const flow = currentDraftFlow();
-  if (!flow) return;
-  if (flow.steps.length === 1) {
-    notify("A call type needs at least one step.", "warn");
-    return;
-  }
-  const index = flow.steps.findIndex((step) => step.id === state.activeStepId);
-  if (index < 0) return;
-  const deletedId = flow.steps[index].id;
-  flow.steps.splice(index, 1);
-  flow.steps.forEach((step) => {
-    if (step.parentId === deletedId) step.parentId = null;
-    if (step.next === deletedId) step.next = null;
-    step.branches = (step.branches || []).filter((branch) => branch.targetId !== deletedId);
+function moveCurrentStep(direction) {
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    const step = stepById(flow, state.activeStepId);
+    if (!flow || !step) return;
+    const list = step.main ? topSteps(flow) : flow.steps.filter((item) => !item.main && item.parentId === step.parentId);
+    const index = list.findIndex((item) => item.id === step.id);
+    const swapWith = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || swapWith < 0 || swapWith >= list.length) return;
+    const current = list[index];
+    const other = list[swapWith];
+    const currentOrder = current.order;
+    current.order = other.order;
+    other.order = currentOrder;
   });
-  state.activeStepId = flow.steps[Math.max(0, index - 1)]?.id || flow.steps[0]?.id || null;
-  markDirty();
-  render();
 }
 
-function moveStep(direction, stepId) {
-  prepareDraft();
-  const flow = currentDraftFlow();
-  if (!flow) return;
-  const index = flow.steps.findIndex((step) => step.id === stepId);
-  if (index < 0) return;
-  const nextIndex = direction === "up" ? index - 1 : index + 1;
-  if (nextIndex < 0 || nextIndex >= flow.steps.length) return;
-  const [step] = flow.steps.splice(index, 1);
-  flow.steps.splice(nextIndex, 0, step);
-  markDirty();
-  render();
+function addItem(listName) {
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    const step = stepById(flow, state.activeStepId);
+    if (!step) return;
+    if (listName === "keyPoints") step.keyPoints = [...step.keyPoints, ""];
+    if (listName === "extraItems") {
+      if (!step.extra) step.extra = { title: "Notes", items: [] };
+      step.extra.items = [...step.extra.items, ""];
+    }
+    if (listName === "guarantees") step.guarantees = [...step.guarantees, { name: "Guarantee", script: "" }];
+    if (listName === "followUp") step.followUp = [...step.followUp, { day: "Day", content: "" }];
+  });
 }
 
-function toggleExtra() {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step) return;
-  step.extra = step.extra ? null : { title: "Notes", items: [""] };
-  markDirty();
-  render();
+function removeListItem(listName, index) {
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    const step = stepById(flow, state.activeStepId);
+    if (!step) return;
+    if (listName === "keyPoints") step.keyPoints = step.keyPoints.filter((_, itemIndex) => itemIndex !== index);
+    if (listName === "extraItems" && step.extra) step.extra.items = step.extra.items.filter((_, itemIndex) => itemIndex !== index);
+    if (listName === "guarantees") step.guarantees = step.guarantees.filter((_, itemIndex) => itemIndex !== index);
+    if (listName === "followUp") step.followUp = step.followUp.filter((_, itemIndex) => itemIndex !== index);
+  });
 }
 
-function addKeyPoint() {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step) return;
-  step.keyPoints = step.keyPoints || [];
-  step.keyPoints.push("");
-  markDirty();
-  render();
-}
-
-function removeKeyPoint(index) {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step?.keyPoints) return;
-  step.keyPoints.splice(index, 1);
-  markDirty();
-  render();
-}
-
-function addExtraItem() {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step) return;
-  if (!step.extra) step.extra = { title: "Notes", items: [] };
-  step.extra.items.push("");
-  markDirty();
-  render();
-}
-
-function removeExtraItem(index) {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step?.extra?.items) return;
-  step.extra.items.splice(index, 1);
-  markDirty();
-  render();
-}
-
-function addBranch() {
-  prepareDraft();
-  const step = currentDraftStep();
-  const flow = currentDraftFlow();
-  if (!step || !flow) return;
-  step.branches = step.branches || [];
-  step.branches.push({ label: "New branch", targetId: flow.steps[0]?.id || "", color: "flow" });
-  markDirty();
-  render();
+function addBranchRow() {
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    const step = stepById(flow, state.activeStepId);
+    if (!step) return;
+    step.branches = [...(step.branches || []), { label: "New Branch", color: "decision", targetId: null }];
+  });
 }
 
 function removeBranch(index) {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step?.branches) return;
-  step.branches.splice(index, 1);
-  markDirty();
+  updateDraft((draft) => {
+    const flow = flowById(draft, state.activeFlowId);
+    const step = stepById(flow, state.activeStepId);
+    if (!step) return;
+    step.branches = (step.branches || []).filter((_, branchIndex) => branchIndex !== index);
+  });
+}
+
+function addGroup() {
+  updateDraft((draft) => {
+    const group = {
+      id: uniqueId(`group-${uid()}`, draft.groups),
+      name: "New Group",
+      icon: "📞",
+      order: draft.groups.length,
+    };
+    draft.groups.push(group);
+    state.activeGroupId = group.id;
+  });
+}
+
+function deleteGroup(groupId) {
+  updateDraft((draft) => {
+    if (draft.groups.length <= 1) {
+      notify("Keep at least one group.", "error");
+      return;
+    }
+    const fallbackId = draft.groups.find((group) => group.id !== groupId)?.id;
+    draft.groups = draft.groups.filter((group) => group.id !== groupId);
+    draft.flows = draft.flows.map((flow) => ({
+      ...flow,
+      groupId: flow.groupId === groupId ? fallbackId : flow.groupId,
+    }));
+    state.activeGroupId = fallbackId;
+  });
+}
+
+function addFlow() {
+  updateDraft((draft) => {
+    const flows = draft.flows || [];
+    const flow = {
+      id: uniqueId(`flow-${uid()}`, flows),
+      name: "New Call Type",
+      icon: "📞",
+      desc: "",
+      groupId: state.activeGroupId || draft.groups[0]?.id || "general",
+      order: flows.length,
+      steps: [],
+    };
+    draft.flows.push(flow);
+    state.activeFlowId = flow.id;
+    state.screen = "flow";
+    createMainStep();
+  }, false);
   render();
 }
 
-function addGuarantee() {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step) return;
-  step.guarantees = step.guarantees || [];
-  step.guarantees.push({ name: "Guarantee", color: "#059669", script: "" });
-  step.specialType = "guarantees";
-  markDirty();
-  render();
+function deleteFlow(flowId) {
+  if (!window.confirm("Delete this call type?")) return;
+  updateDraft((draft) => {
+    draft.flows = draft.flows.filter((flow) => flow.id !== flowId);
+    state.activeFlowId = draft.flows[0]?.id || null;
+    state.activeStepId = draft.flows[0]?.steps?.[0]?.id || null;
+    state.screen = "home";
+  });
 }
 
-function removeGuarantee(index) {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step?.guarantees) return;
-  step.guarantees.splice(index, 1);
-  markDirty();
-  render();
+function openImport() {
+  const input = document.getElementById("workspace-import");
+  input?.click();
 }
 
-function addFollowup() {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step) return;
-  step.followUp = step.followUp || [];
-  step.followUp.push({ day: "Day label", content: "" });
-  step.specialType = "followup";
-  markDirty();
-  render();
+function handleImport(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || ""));
+      const next = normalizeWorkspace(parsed);
+      if (state.editMode) {
+        state.draft = next;
+        state.dirty = true;
+      } else {
+        state.workspace = next;
+      }
+      syncSelection();
+      render();
+      notify("Import loaded. Save to keep it.", "success");
+    } catch (error) {
+      console.error(error);
+      notify("Could not import that file.", "error");
+    }
+  };
+  reader.readAsText(file);
 }
 
-function removeFollowup(index) {
-  prepareDraft();
-  const step = currentDraftStep();
-  if (!step?.followUp) return;
-  step.followUp.splice(index, 1);
-  markDirty();
-  render();
-}
-
-function handleTemplateChange(step) {
-  step.special = step.specialType !== "standard";
-  if (step.specialType === "standard") {
-    step.guarantees = [];
-    step.followUp = [];
-  } else if (step.specialType === "guarantees") {
-    step.guarantees = step.guarantees?.length ? step.guarantees : [{ name: "Guarantee", color: "#059669", script: "" }];
-    step.followUp = [];
-  } else if (step.specialType === "followup") {
-    step.followUp = step.followUp?.length ? step.followUp : [{ day: "Day 1", content: "" }];
-    step.guarantees = [];
-  }
-}
-
-function exportJson() {
-  const blob = new Blob([JSON.stringify(currentDraftWorkspace(), null, 2)], { type: "application/json" });
+function exportWorkspace() {
+  const blob = new Blob([JSON.stringify(workspaceSource(), null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "call-script-workspace.json";
-  link.click();
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "call-guide-workspace.json";
+  anchor.click();
   URL.revokeObjectURL(url);
 }
 
-function triggerImport() {
-  document.getElementById(importInputId)?.click();
+function beforeUnload(event) {
+  if (!state.editMode || !state.dirty) return;
+  event.preventDefault();
+  event.returnValue = "";
 }
 
-async function handleImport(file) {
-  if (!file) return;
+function renderNotice() {
+  if (!state.notice) return "";
+  return `<div class="notice ${escapeHtml(state.notice.tone)}">${escapeHtml(state.notice.message)}</div>`;
+}
+
+function authScreen() {
+  const mode = state.authMode === "signin" ? "Sign in" : "Create account";
+  const altMode = state.authMode === "signin" ? "Create account" : "Sign in";
+  const status = !isConfigured()
+    ? `<div class="notice error">Firebase is not configured yet.</div>`
+    : state.notice
+      ? renderNotice()
+      : "";
+
+  return `
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <h1>${mode}</h1>
+        <p>Use email and password.</p>
+        <form class="auth-form" data-form="auth">
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" autocomplete="email" value="${escapeHtml(state.authForm.email)}" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input type="password" name="password" autocomplete="current-password" value="${escapeHtml(state.authForm.password)}" required />
+          </label>
+          <button type="submit" class="primary-btn">${state.authPending ? "Working…" : mode}</button>
+        </form>
+        <div class="inline-actions" style="margin-top:12px;">
+          <button class="ghost-btn" type="button" data-action="switch-auth-mode">${altMode}</button>
+        </div>
+        ${status}
+      </div>
+    </div>
+  `;
+}
+
+function loadingScreen() {
+  return `
+    <div class="loading-wrap">
+      <div class="loading-card">Loading…</div>
+    </div>
+  `;
+}
+
+function homeScreen() {
+  const groups = groupList();
+  const activeGroup = groups.find((group) => group.id === state.activeGroupId) || groups[0];
+  const flows = flowList().filter((flow) => flow.groupId === activeGroup?.id);
+
+  return `
+    <div class="shell">
+      <div class="utility-row">
+        <div>
+          <h1 class="home-title">Select call type</h1>
+          <div class="home-intro">Pick the call, then follow the steps across the top.</div>
+        </div>
+        <div></div>
+        <div class="utility-actions">
+          <button class="small-btn" data-action="export-workspace">Export</button>
+          <button class="small-btn" data-action="import-workspace">Import</button>
+          <input id="workspace-import" type="file" accept="application/json" class="hidden" />
+          <button class="small-btn" data-action="sign-out">Sign out</button>
+        </div>
+      </div>
+
+      <div class="home-grid">
+        <div class="home-card">
+          <div class="group-tabs">
+            ${groups.map((group) => `
+              <button class="pill-btn ${group.id === activeGroup?.id ? "active" : ""}" data-action="select-group" data-group-id="${escapeHtml(group.id)}">
+                ${escapeHtml(group.name)}
+              </button>
+            `).join("")}
+          </div>
+        </div>
+
+        <div class="home-flows">
+          ${flows.map((flow) => `
+            <button class="select-card" data-action="open-flow" data-flow-id="${escapeHtml(flow.id)}">
+              <strong>${escapeHtml(flow.name)}</strong>
+              <span>${escapeHtml(flow.desc || "")}</span>
+            </button>
+          `).join("") || `<div class="empty-state">No call types in this group yet.</div>`}
+        </div>
+
+        ${state.editMode ? renderHomeBuilder() : ""}
+        ${renderNotice()}
+      </div>
+
+      ${renderFab()}
+    </div>
+  `;
+}
+
+function renderHomeBuilder() {
+  const draft = state.draft;
+  if (!draft) return "";
+  return `
+    <div class="builder-layout">
+      <div class="builder-card">
+        <div class="builder-title">Groups</div>
+        <div class="stack-list" style="margin-top:12px;">
+          ${draft.groups.map((group) => `
+            <div class="group-manager-row">
+              <input value="${escapeHtml(group.icon || "")}" data-role="group-field" data-group-id="${escapeHtml(group.id)}" data-field="icon" />
+              <input value="${escapeHtml(group.name || "")}" data-role="group-field" data-group-id="${escapeHtml(group.id)}" data-field="name" />
+              <button class="small-btn" data-action="move-group" data-group-id="${escapeHtml(group.id)}" data-direction="up">↑</button>
+              <button class="small-btn" data-action="move-group" data-group-id="${escapeHtml(group.id)}" data-direction="down">↓</button>
+              <button class="warning-btn" data-action="delete-group" data-group-id="${escapeHtml(group.id)}">Delete</button>
+            </div>
+          `).join("")}
+        </div>
+        <div class="inline-actions" style="margin-top:12px;">
+          <button class="small-btn" data-action="add-group">Add group</button>
+        </div>
+      </div>
+
+      <div class="builder-card">
+        <div class="builder-title">Call types</div>
+        <div class="stack-list" style="margin-top:12px;">
+          ${draft.flows.map((flow) => `
+            <div class="flow-manager-row">
+              <input value="${escapeHtml(flow.icon || "")}" data-role="flow-field" data-flow-id="${escapeHtml(flow.id)}" data-field="icon" />
+              <input value="${escapeHtml(flow.name || "")}" data-role="flow-field" data-flow-id="${escapeHtml(flow.id)}" data-field="name" />
+              <select data-role="flow-field" data-flow-id="${escapeHtml(flow.id)}" data-field="groupId">
+                ${draft.groups.map((group) => `<option value="${escapeHtml(group.id)}" ${group.id === flow.groupId ? "selected" : ""}>${escapeHtml(group.name)}</option>`).join("")}
+              </select>
+              <div class="inline-actions">
+                <button class="small-btn" data-action="open-flow" data-flow-id="${escapeHtml(flow.id)}">Open</button>
+                <button class="warning-btn" data-action="delete-flow" data-flow-id="${escapeHtml(flow.id)}">Delete</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+        <div class="builder-grid two" style="margin-top:12px;">
+          <label>
+            <span>Add call type</span>
+            <button class="small-btn" data-action="add-flow" type="button">Create</button>
+          </label>
+          <label>
+            <span>Import or export</span>
+            <div class="inline-actions">
+              <button class="small-btn" data-action="export-workspace">Export</button>
+              <button class="small-btn" data-action="import-workspace">Import</button>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderEditableStepText(step) {
+  if (!state.editMode) return `<div class="ribbon-text">${renderText(step.subtitle)}</div>`;
+  return `<textarea data-role="step-field" data-field="subtitle">${escapeHtml(step.subtitle || "")}</textarea>`;
+}
+
+function renderScript(step) {
+  if (step.special && step.specialType === "guarantees") {
+    return `
+      <div class="page-section">
+        ${step.guarantees.map((item, index) => `
+          <div class="guarantee-card">
+            ${state.editMode ? `
+              <div class="guarantee-row">
+                <input value="${escapeHtml(item.name || "")}" data-role="guarantee-field" data-index="${index}" data-field="name" />
+                <textarea data-role="guarantee-field" data-index="${index}" data-field="script">${escapeHtml(item.script || "")}</textarea>
+                <button class="warning-btn" data-action="remove-guarantee" data-index="${index}">×</button>
+              </div>
+            ` : `
+              <div class="guarantee-name">${escapeHtml(item.name || "")}</div>
+              <div>${renderText(item.script || "")}</div>
+            `}
+          </div>
+        `).join("")}
+        ${state.editMode ? `<div class="inline-actions"><button class="small-btn" data-action="add-guarantee">Add guarantee</button></div>` : ""}
+      </div>
+    `;
+  }
+
+  if (step.special && step.specialType === "followup") {
+    return `
+      <div class="page-section">
+        ${step.followUp.map((item, index) => `
+          <div class="timeline-card">
+            ${state.editMode ? `
+              <div class="timeline-row">
+                <input value="${escapeHtml(item.day || "")}" data-role="followup-field" data-index="${index}" data-field="day" />
+                <textarea data-role="followup-field" data-index="${index}" data-field="content">${escapeHtml(item.content || "")}</textarea>
+                <button class="warning-btn" data-action="remove-followup" data-index="${index}">×</button>
+              </div>
+            ` : `
+              <div class="timeline-day">${escapeHtml(item.day || "")}</div>
+              <div>${renderText(item.content || "")}</div>
+            `}
+          </div>
+        `).join("")}
+        ${state.editMode ? `<div class="inline-actions"><button class="small-btn" data-action="add-followup">Add follow-up entry</button></div>` : ""}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="script-card">
+      <span class="script-label">Script</span>
+      ${state.editMode
+        ? `<textarea data-role="step-field" data-field="script">${escapeHtml(step.script || "")}</textarea>`
+        : `<div class="script-text">${renderText(step.script || "")}</div>`}
+    </div>
+  `;
+}
+
+function renderActionRow(step, flow) {
+  const branches = step.branches || [];
+  const buttons = branches.map((branch, index) => {
+    const target = flow.steps.find((item) => item.id === branch.targetId);
+    if (!branch.targetId || !target) return "";
+    return `
+      <button class="branch-btn" data-action="go-step" data-step-id="${escapeHtml(branch.targetId)}" style="background:${BRANCH_TONES[branch.color] || "var(--white)"};">
+        ${escapeHtml(branch.label || "Branch")}
+      </button>
+    `;
+  }).filter(Boolean);
+
+  if (step.next) {
+    const next = flow.steps.find((item) => item.id === step.next);
+    if (next) {
+      buttons.push(`<button class="primary-btn" data-action="go-step" data-step-id="${escapeHtml(next.id)}">Next</button>`);
+    }
+  }
+
+  if (!buttons.length) return "";
+  return `<div class="action-row">${buttons.join("")}</div>`;
+}
+
+function renderKeyPoints(step) {
+  if (!step.keyPoints?.length && !state.editMode) return "";
+  return `
+    <div class="page-section">
+      <span class="section-label">Key points</span>
+      ${state.editMode ? `
+        <div class="inline-list compact">
+          ${(step.keyPoints || []).map((item, index) => `
+            <div class="item-row">
+              <input value="${escapeHtml(item || "")}" data-role="keypoint-field" data-index="${index}" />
+              <button class="warning-btn" data-action="remove-keypoint" data-index="${index}">×</button>
+            </div>
+          `).join("")}
+          <div class="inline-actions"><button class="small-btn" data-action="add-keypoint">Add key point</button></div>
+        </div>
+      ` : `
+        <ul class="keypoints-list">${step.keyPoints.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      `}
+    </div>
+  `;
+}
+
+function renderTone(step) {
+  if (!step.toneCue && !state.editMode) return "";
+  return `
+    <div class="tone-box">
+      ${state.editMode
+        ? `<textarea data-role="step-field" data-field="toneCue">${escapeHtml(step.toneCue || "")}</textarea>`
+        : renderText(step.toneCue || "")}
+    </div>
+  `;
+}
+
+function renderExtra(step) {
+  if (!step.extra && !state.editMode) return "";
+  const extra = step.extra || { title: "Notes", items: [] };
+  return `
+    <div class="extra-box">
+      ${state.editMode ? `
+        <div class="page-section">
+          <label>
+            <span>Extra title</span>
+            <input value="${escapeHtml(extra.title || "")}" data-role="extra-title" />
+          </label>
+          <div class="inline-list compact">
+            ${(extra.items || []).map((item, index) => `
+              <div class="item-row">
+                <input value="${escapeHtml(item || "")}" data-role="extra-item" data-index="${index}" />
+                <button class="warning-btn" data-action="remove-extra-item" data-index="${index}">×</button>
+              </div>
+            `).join("")}
+            <div class="inline-actions"><button class="small-btn" data-action="add-extra-item">Add line</button></div>
+          </div>
+        </div>
+      ` : `
+        <span class="section-label">${escapeHtml(extra.title || "Notes")}</span>
+        <ul class="extra-list">${(extra.items || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      `}
+    </div>
+  `;
+}
+
+function renderStepBuilder(step, flow) {
+  if (!state.editMode) return "";
+  const parent = step.parentId ? flow.steps.find((item) => item.id === step.parentId) : null;
+  return `
+    <div class="builder-layout">
+      <div class="edit-strip">
+        <div class="inline-actions">
+          <button class="small-btn" data-action="add-step">Add step</button>
+          <button class="small-btn" data-action="add-branch-step">Add branch</button>
+          <button class="small-btn" data-action="add-special-step" data-type="guarantees">Add guarantees</button>
+          <button class="small-btn" data-action="add-special-step" data-type="followup">Add follow-up</button>
+          <button class="small-btn" data-action="duplicate-step">Duplicate</button>
+          <button class="small-btn" data-action="move-step" data-direction="up">Move left</button>
+          <button class="small-btn" data-action="move-step" data-direction="down">Move right</button>
+          <button class="warning-btn" data-action="delete-step">Delete</button>
+        </div>
+      </div>
+
+      <div class="builder-card">
+        <div class="builder-grid two">
+          <label>
+            <span>Label</span>
+            <input value="${escapeHtml(step.label || "")}" data-role="step-field" data-field="label" />
+          </label>
+          <label>
+            <span>Title</span>
+            <input value="${escapeHtml(step.title || "")}" data-role="step-field" data-field="title" />
+          </label>
+          <label>
+            <span>Stage button text</span>
+            <input value="${escapeHtml(step.parentId ? parent?.label || "Branch" : step.label || "")}" data-role="stage-label" />
+          </label>
+          <label>
+            <span>Next step</span>
+            <select data-role="step-field" data-field="next">
+              <option value="">None</option>
+              ${flow.steps.filter((item) => item.id !== step.id).map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === step.next ? "selected" : ""}>${escapeHtml(item.title)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Main step</span>
+            <select data-role="step-field" data-field="main">
+              <option value="true" ${step.main ? "selected" : ""}>Yes</option>
+              <option value="false" ${!step.main ? "selected" : ""}>No</option>
+            </select>
+          </label>
+          <label>
+            <span>Special type</span>
+            <select data-role="step-field" data-field="specialType">
+              <option value="standard" ${step.specialType === "standard" ? "selected" : ""}>Standard</option>
+              <option value="guarantees" ${step.specialType === "guarantees" ? "selected" : ""}>Guarantees</option>
+              <option value="followup" ${step.specialType === "followup" ? "selected" : ""}>Follow-up</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      ${!step.special ? `
+        <div class="builder-card">
+          <div class="builder-title">Branches</div>
+          <div class="stack-list" style="margin-top:12px;">
+            ${(step.branches || []).map((branch, index) => `
+              <div class="branch-row">
+                <input value="${escapeHtml(branch.label || "")}" data-role="branch-field" data-index="${index}" data-field="label" />
+                <select data-role="branch-field" data-index="${index}" data-field="color">
+                  ${["flow", "money", "decision", "danger", "back", "success"].map((tone) => `<option value="${tone}" ${tone === branch.color ? "selected" : ""}>${tone}</option>`).join("")}
+                </select>
+                <select data-role="branch-field" data-index="${index}" data-field="targetId">
+                  <option value="">No target</option>
+                  ${flow.steps.filter((item) => item.id !== step.id).map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === branch.targetId ? "selected" : ""}>${escapeHtml(item.title)}</option>`).join("")}
+                </select>
+                <button class="warning-btn" data-action="remove-branch" data-index="${index}">×</button>
+              </div>
+            `).join("")}
+          </div>
+          <div class="inline-actions" style="margin-top:12px;"><button class="small-btn" data-action="add-branch-row">Add branch button</button></div>
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function flowScreen() {
+  const flow = currentFlow();
+  const step = currentStep();
+
+  if (!flow) {
+    return `
+      <div class="shell">
+        <div class="empty-state">No call types yet.</div>
+        ${renderFab()}
+      </div>
+    `;
+  }
+
+  if (!step) {
+    return `
+      <div class="shell">
+        <div class="flow-topbar">
+          <button class="home-btn" data-action="go-home">⌂</button>
+          <div class="topbar-label">${escapeHtml(flow.name)}</div>
+          <div class="topbar-actions"><button class="small-btn" data-action="sign-out">Sign out</button></div>
+        </div>
+        <div class="empty-state">This call type has no steps yet.</div>
+        ${renderFab()}
+      </div>
+    `;
+  }
+
+  const display = displayStep(step);
+  const info = stepIndexInfo(step, flow);
+  const top = topSteps(flow);
+  const parent = step.parentId ? flow.steps.find((item) => item.id === step.parentId) : null;
+
+  return `
+    <div class="shell">
+      <div class="flow-topbar">
+        <button class="home-btn" data-action="go-home" aria-label="Home">⌂</button>
+        <div class="step-tabs">
+          ${top.map((item) => `
+            <button class="step-tab ${(item.id === (step.parentId || step.id)) ? "active" : ""}" data-action="go-step" data-step-id="${escapeHtml(item.id)}">
+              ${escapeHtml(item.num || "")}&nbsp;${escapeHtml(item.label || item.title)}
+            </button>
+          `).join("")}
+        </div>
+        <div class="topbar-actions">
+          <button class="small-btn" data-action="sign-out">Sign out</button>
+        </div>
+      </div>
+
+      <div class="flow-layout">
+        <aside class="step-rail">
+          <div class="step-rail-top">
+            <div class="step-num">${escapeHtml(step.num || parent?.num || "•")}</div>
+            <div class="step-title">${state.editMode
+              ? `<input value="${escapeHtml(step.title || "")}" data-role="step-field" data-field="title" />`
+              : escapeHtml(step.title || "")}</div>
+            <div class="step-side-subtitle">${state.editMode
+              ? `<input value="${escapeHtml(step.label || "")}" data-role="step-field" data-field="label" />`
+              : escapeHtml(step.label || "")}</div>
+            <div class="stage-pill">${escapeHtml(step.parentId ? parent?.label || "Branch" : (step.label || step.title || "Step"))}</div>
+          </div>
+          <div class="rail-footer">${info.position} of ${info.total}</div>
+        </aside>
+
+        <main class="content-panel">
+          <div class="flow-heading">${escapeHtml(flow.name)}</div>
+          ${parent ? `<div class="parent-row"><div>Branch from ${escapeHtml(parent.title)}</div><button class="small-btn" data-action="go-step" data-step-id="${escapeHtml(parent.id)}">Back to parent</button></div>` : ""}
+          <div class="ribbon">${renderEditableStepText(step)}</div>
+          ${renderScript(step)}
+          ${!step.special ? renderActionRow(step, flow) : ""}
+          ${renderKeyPoints(step)}
+          ${renderTone(step)}
+          ${renderExtra(step)}
+          ${renderStepBuilder(step, flow)}
+          ${renderNotice()}
+        </main>
+      </div>
+
+      ${renderFab()}
+    </div>
+  `;
+}
+
+function renderFab() {
+  if (!state.user || state.workspaceLoading) return "";
+  return `<button class="fab" data-action="toggle-edit" aria-label="${state.editMode ? "Save" : "Edit"}">${state.saving ? "…" : state.editMode ? "✓" : "✎"}</button>`;
+}
+
+function render() {
+  if (!state.authReady) {
+    root.innerHTML = loadingScreen();
+    return;
+  }
+  if (!state.user) {
+    root.innerHTML = authScreen();
+    return;
+  }
+  if (state.workspaceLoading || !state.workspace) {
+    root.innerHTML = loadingScreen();
+    return;
+  }
+  syncSelection();
+  root.innerHTML = state.screen === "flow" ? flowScreen() : homeScreen();
+}
+
+async function loadWorkspaceForUser(user) {
   try {
-    const text = await file.text();
-    const parsed = JSON.parse(text);
-    const normalized = normalizeWorkspace(parsed);
-    if (state.editMode) {
-      state.draft = normalized;
-      markDirty();
-    } else {
-      state.workspace = normalized;
-      state.editMode = true;
-      state.draft = deepClone(normalized);
-      state.dirty = true;
-    }
-    syncSelection();
-    render();
-    notify("Imported into edit mode. Save to keep it.", "success");
-  } catch (error) {
-    console.error(error);
-    notify("Could not import that file.", "error");
-  }
-}
-
-function resetBrowserData() {
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch (error) {
-    console.error(error);
-  }
-  notify("Local browser data cleared for this tab. Reload if needed.", "success");
-}
-
-function toggleTheme() {
-  if (state.editMode) {
-    state.draft.theme = state.draft.theme === "dark" ? "light" : "dark";
-    markDirty();
-  } else {
-    state.workspace.theme = state.workspace.theme === "dark" ? "light" : "dark";
-    state.draft = deepClone(state.workspace);
-    state.editMode = true;
-    state.dirty = true;
-  }
-  render();
-}
-
-async function handleAction(action, dataset) {
-  switch (action) {
-    case "set-auth-mode":
-      state.authMode = dataset.mode || "signin";
-      render();
-      break;
-    case "toggle-group-menu":
-      state.openGroupId = state.openGroupId === dataset.groupId ? null : dataset.groupId;
-      render();
-      break;
-    case "select-flow": {
-      state.activeFlowId = dataset.flowId;
-      state.activeStepId = (flowList().find((flow) => flow.id === dataset.flowId)?.steps || [])[0]?.id || null;
-      state.openGroupId = null;
-      render();
-      break;
-    }
-    case "select-step":
-      state.activeStepId = dataset.stepId;
-      render();
-      break;
-    case "toggle-edit":
-      if (state.editMode) await saveEdit();
-      else startEdit();
-      break;
-    case "discard-edit":
-      discardEdit();
-      break;
-    case "add-group":
-      addGroup();
-      break;
-    case "delete-group":
-      deleteGroup(dataset.groupId);
-      break;
-    case "move-group":
-      moveGroup(dataset.groupId, dataset.direction);
-      break;
-    case "add-flow":
-      addFlow();
-      break;
-    case "duplicate-flow":
-      duplicateFlow();
-      break;
-    case "delete-flow":
-      deleteFlow();
-      break;
-    case "add-step":
-      addStep();
-      break;
-    case "duplicate-step":
-      duplicateStep();
-      break;
-    case "delete-step":
-      deleteStep();
-      break;
-    case "move-step":
-      moveStep(dataset.direction, dataset.stepId);
-      break;
-    case "toggle-extra":
-      toggleExtra();
-      break;
-    case "add-key-point":
-      addKeyPoint();
-      break;
-    case "remove-key-point":
-      removeKeyPoint(Number(dataset.index));
-      break;
-    case "add-extra-item":
-      addExtraItem();
-      break;
-    case "remove-extra-item":
-      removeExtraItem(Number(dataset.index));
-      break;
-    case "add-branch":
-      addBranch();
-      break;
-    case "remove-branch":
-      removeBranch(Number(dataset.index));
-      break;
-    case "add-guarantee":
-      addGuarantee();
-      break;
-    case "remove-guarantee":
-      removeGuarantee(Number(dataset.index));
-      break;
-    case "add-followup":
-      addFollowup();
-      break;
-    case "remove-followup":
-      removeFollowup(Number(dataset.index));
-      break;
-    case "toggle-theme":
-      toggleTheme();
-      break;
-    case "export-json":
-      exportJson();
-      break;
-    case "trigger-import":
-      triggerImport();
-      break;
-    case "reset-browser-data":
-      resetBrowserData();
-      break;
-    case "sign-out":
-      try {
-        await signOutUser();
-      } catch (error) {
-        notify(error.message || "Could not sign out.", "error");
-      }
-      break;
-    default:
-      break;
-  }
-}
-
-function attachRootListeners() {
-  const authForm = document.getElementById("auth-form");
-  if (authForm) {
-    authForm.addEventListener("input", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      state.authForm[target.name] = target.value;
-    });
-
-    authForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (state.authPending) return;
-      state.authPending = true;
-      render();
-      try {
-        const email = state.authForm.email.trim();
-        const password = state.authForm.password;
-        if (state.authMode === "signin") {
-          await signInWithEmail(email, password);
-        } else {
-          await signUpWithEmail(email, password);
-        }
-      } catch (error) {
-        console.error(error);
-        state.authPending = false;
-        notify(error.message || "Could not authenticate.", "error");
-        render();
-        return;
-      }
-      state.authPending = false;
-    });
-  }
-
-  root.querySelectorAll("[data-bind]").forEach((element) => {
-    const path = element.getAttribute("data-bind");
-    const handler = (event) => {
-      if (!state.editMode || !state.draft) return;
-      let value = event.target.value;
-      if (value === "true") value = true;
-      if (value === "false") value = false;
-      pathSet(state.draft, path, value);
-      const step = currentDraftStep();
-      if (step && path.endsWith("specialType")) handleTemplateChange(step);
-      markDirty();
-    };
-    element.addEventListener("input", handler);
-    element.addEventListener("change", handler);
-  });
-
-  root.querySelectorAll("[data-action]").forEach((button) => {
-    button.addEventListener("click", async (event) => {
-      const target = event.currentTarget;
-      const { action, ...dataset } = target.dataset;
-      await handleAction(action, dataset);
-    });
-  });
-
-  const importInput = document.getElementById(importInputId);
-  if (importInput) {
-    importInput.addEventListener("change", (event) => {
-      const file = event.target.files?.[0];
-      handleImport(file);
-      event.target.value = "";
-    });
-  }
-
-  document.onclick = (event) => {
-    if (!state.openGroupId) return;
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (!target.closest(".group-nav")) {
-      state.openGroupId = null;
-      render();
-    }
-  };
-}
-
-function init() {
-  subscribeToAuth(async (user) => {
-    state.user = user;
-    state.authReady = true;
-    state.authPending = false;
-
-    if (!user) {
-      state.workspace = null;
-      state.draft = null;
-      state.editMode = false;
-      state.dirty = false;
-      state.workspaceLoading = false;
-      render();
-      return;
-    }
-
     state.workspaceLoading = true;
     render();
-    try {
-      const workspace = await seedWorkspaceIfEmpty(user.uid);
-      state.workspace = normalizeWorkspace(workspace);
-      state.draft = null;
-      state.editMode = false;
-      state.dirty = false;
-      syncSelection();
-    } catch (error) {
-      console.error(error);
-      notify(error.message || "Could not load workspace.", "error");
-    }
+    const workspace = await seedWorkspaceIfEmpty(user.uid);
+    state.workspace = normalizeWorkspace(workspace);
+    state.activeGroupId = state.workspace.groups[0]?.id || null;
+    state.activeFlowId = state.workspace.flows[0]?.id || null;
+    state.activeStepId = state.workspace.flows[0]?.steps?.[0]?.id || null;
+    state.screen = "home";
+  } catch (error) {
+    console.error(error);
+    notify(error.message || "Could not load workspace.", "error");
+  } finally {
     state.workspaceLoading = false;
     render();
-  });
+  }
 }
 
-init();
+function onClick(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button) return;
+  const { action } = button.dataset;
+
+  if (action === "switch-auth-mode") {
+    state.authMode = state.authMode === "signin" ? "signup" : "signin";
+    state.notice = null;
+    render();
+    return;
+  }
+  if (action === "toggle-edit") { toggleEditMode(); return; }
+  if (action === "go-home") { state.screen = "home"; render(); return; }
+  if (action === "select-group") { state.activeGroupId = button.dataset.groupId; render(); return; }
+  if (action === "open-flow") { selectFlow(button.dataset.flowId); return; }
+  if (action === "go-step") { state.activeStepId = button.dataset.stepId; render(); return; }
+  if (action === "sign-out") {
+    signOutUser().catch((error) => notify(error.message || "Could not sign out.", "error"));
+    return;
+  }
+  if (action === "add-step") { createMainStep(); return; }
+  if (action === "add-branch-step") { createBranchStep(); return; }
+  if (action === "add-special-step") { createSpecialStep(button.dataset.type); return; }
+  if (action === "duplicate-step") { duplicateCurrentStep(); return; }
+  if (action === "delete-step") { deleteCurrentStep(); return; }
+  if (action === "move-step") { moveCurrentStep(button.dataset.direction); return; }
+  if (action === "add-keypoint") { addItem("keyPoints"); return; }
+  if (action === "remove-keypoint") { removeListItem("keyPoints", Number(button.dataset.index)); return; }
+  if (action === "add-extra-item") { addItem("extraItems"); return; }
+  if (action === "remove-extra-item") { removeListItem("extraItems", Number(button.dataset.index)); return; }
+  if (action === "add-guarantee") { addItem("guarantees"); return; }
+  if (action === "remove-guarantee") { removeListItem("guarantees", Number(button.dataset.index)); return; }
+  if (action === "add-followup") { addItem("followUp"); return; }
+  if (action === "remove-followup") { removeListItem("followUp", Number(button.dataset.index)); return; }
+  if (action === "add-branch-row") { addBranchRow(); return; }
+  if (action === "remove-branch") { removeBranch(Number(button.dataset.index)); return; }
+  if (action === "add-group") { addGroup(); return; }
+  if (action === "delete-group") { deleteGroup(button.dataset.groupId); return; }
+  if (action === "move-group") {
+    updateDraft((draft) => {
+      const group = draft.groups.find((item) => item.id === button.dataset.groupId);
+      if (!group) return;
+      const direction = button.dataset.direction === "up" ? -1 : 1;
+      const other = draft.groups.find((item) => item.order === group.order + direction);
+      if (!other) return;
+      const temp = group.order;
+      group.order = other.order;
+      other.order = temp;
+    });
+    return;
+  }
+  if (action === "add-flow") { addFlow(); return; }
+  if (action === "delete-flow") { deleteFlow(button.dataset.flowId); return; }
+  if (action === "export-workspace") { exportWorkspace(); return; }
+  if (action === "import-workspace") { openImport(); return; }
+}
+
+function onInput(event) {
+  const target = event.target;
+  if (target.closest('[data-form="auth"]')) {
+    state.authForm[target.name] = target.value;
+    return;
+  }
+  if (!state.editMode || !state.draft) return;
+
+  if (target.dataset.role === "group-field") {
+    const group = state.draft.groups.find((item) => item.id === target.dataset.groupId);
+    if (!group) return;
+    group[target.dataset.field] = target.value;
+    state.dirty = true;
+    return;
+  }
+
+  if (target.dataset.role === "flow-field") {
+    const flow = state.draft.flows.find((item) => item.id === target.dataset.flowId);
+    if (!flow) return;
+    flow[target.dataset.field] = target.value;
+    state.dirty = true;
+    return;
+  }
+
+  const flow = flowById(state.draft, state.activeFlowId);
+  const step = stepById(flow, state.activeStepId);
+  if (!step) return;
+
+  if (target.dataset.role === "step-field") {
+    const field = target.dataset.field;
+    if (field === "main") step.main = target.value === "true";
+    else if (field === "specialType") {
+      step.specialType = target.value;
+      step.special = target.value !== "standard";
+      if (target.value === "guarantees" && !step.guarantees.length) step.guarantees = [{ name: "Guarantee", script: "" }];
+      if (target.value === "followup" && !step.followUp.length) step.followUp = [{ day: "Day 1", content: "" }];
+    } else {
+      step[field] = target.value;
+    }
+    state.dirty = true;
+    return;
+  }
+
+  if (target.dataset.role === "keypoint-field") {
+    step.keyPoints[Number(target.dataset.index)] = target.value;
+    state.dirty = true;
+    return;
+  }
+
+  if (target.dataset.role === "extra-title") {
+    if (!step.extra) step.extra = { title: "Notes", items: [] };
+    step.extra.title = target.value;
+    state.dirty = true;
+    return;
+  }
+
+  if (target.dataset.role === "extra-item") {
+    if (!step.extra) step.extra = { title: "Notes", items: [] };
+    step.extra.items[Number(target.dataset.index)] = target.value;
+    state.dirty = true;
+    return;
+  }
+
+  if (target.dataset.role === "branch-field") {
+    const branch = step.branches[Number(target.dataset.index)];
+    if (!branch) return;
+    branch[target.dataset.field] = target.value || null;
+    state.dirty = true;
+    return;
+  }
+
+  if (target.dataset.role === "guarantee-field") {
+    const item = step.guarantees[Number(target.dataset.index)];
+    if (!item) return;
+    item[target.dataset.field] = target.value;
+    state.dirty = true;
+    return;
+  }
+
+  if (target.dataset.role === "followup-field") {
+    const item = step.followUp[Number(target.dataset.index)];
+    if (!item) return;
+    item[target.dataset.field] = target.value;
+    state.dirty = true;
+    return;
+  }
+
+  if (target.dataset.role === "stage-label") {
+    step.label = target.value;
+    if (step.parentId) {
+      const parent = stepById(flow, step.parentId);
+      if (parent) {
+        parent.branches = (parent.branches || []).map((branch) => (
+          branch.targetId === step.id ? { ...branch, label: target.value || branch.label } : branch
+        ));
+      }
+    }
+    state.dirty = true;
+  }
+}
+
+function onChange(event) {
+  const target = event.target;
+  if (target.id === "workspace-import") {
+    handleImport(target.files?.[0]);
+    target.value = "";
+  }
+}
+
+async function onSubmit(event) {
+  if (event.target.dataset.form !== "auth") return;
+  event.preventDefault();
+  if (!isConfigured()) {
+    notify("Firebase is not configured.", "error");
+    return;
+  }
+  try {
+    state.authPending = true;
+    render();
+    const { email, password } = state.authForm;
+    if (state.authMode === "signin") await signInWithEmail(email, password);
+    else await signUpWithEmail(email, password);
+  } catch (error) {
+    console.error(error);
+    notify(error.message || "Authentication failed.", "error");
+  } finally {
+    state.authPending = false;
+    render();
+  }
+}
+
+root.addEventListener("click", onClick);
+root.addEventListener("input", onInput);
+root.addEventListener("change", onChange);
+root.addEventListener("submit", onSubmit);
+window.addEventListener("beforeunload", beforeUnload);
+
+subscribeToAuth(async (user) => {
+  state.user = user;
+  state.authReady = true;
+  state.notice = null;
+  state.editMode = false;
+  state.draft = null;
+  state.dirty = false;
+  if (!user) {
+    state.workspace = null;
+    state.workspaceLoading = false;
+    state.screen = "home";
+    render();
+    return;
+  }
+  await loadWorkspaceForUser(user);
+});
+
+render();
