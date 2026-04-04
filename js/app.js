@@ -1821,6 +1821,21 @@ async function onSubmit(event) {
 }
 
 root.addEventListener("click", onClick);
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest('[data-action="close-quote-modal"], [data-action="pull-quote-context"]');
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const action = button.dataset.action;
+  if (action === 'close-quote-modal') {
+    closeQuoteModal();
+    return;
+  }
+  if (action === 'pull-quote-context') {
+    pullQuoteContextFromStorage();
+  }
+}, true);
 root.addEventListener("input", onInput);
 root.addEventListener("change", onChange);
 root.addEventListener("submit", onSubmit);
