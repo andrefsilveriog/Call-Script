@@ -83,6 +83,7 @@ function sanitizeStep(step, index) {
     branches: Array.isArray(step.branches) ? step.branches : [],
     main: Boolean(step.main),
     special: Boolean(step.special),
+    specialType: step.specialType || null,
     parentId: step.parentId || null,
     next: step.next || null,
     guarantees: Array.isArray(step.guarantees) ? step.guarantees : null,
