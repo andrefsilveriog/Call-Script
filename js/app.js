@@ -19,6 +19,10 @@ const state = {
   quoteError: '',
   quoteLoading: false,
   authError: '',
+  editorOpen: false,
+  editorDraft: null,
+  editorError: '',
+  editorSaving: false,
 };
 
 const RATE_MODES = {
@@ -346,6 +350,139 @@ function renderHome() {
   if (state.settingsOpen) bindSettingsModal();
 }
 
+
+function cloneWorkspace(workspace) {
+  return JSON.parse(JSON.stringify(workspace));
+}
+function buildEditorDraft(step) {
+  const hasBlocks = Array.isArray(step.script_blocks) && step.script_blocks.length;
+  return {
+    title: safeText(step.title),
+    sidebarLabel: safeText(step.sidebar_label),
+    mode: hasBlocks ? 'script_blocks' : 'script',
+    script: safeText(step.script),
+    scriptBlocksText: JSON.stringify(step.script_blocks || [], null, 2),
+  };
+}
+function openEditor() {
+  const step = getActiveStep();
+  if (!step) return;
+  state.editorOpen = true;
+  state.editorError = '';
+  state.editorSaving = false;
+  state.editorDraft = buildEditorDraft(step);
+  renderCall();
+}
+function closeEditor() {
+  state.editorOpen = false;
+  state.editorDraft = null;
+  state.editorError = '';
+  state.editorSaving = false;
+  renderCall();
+}
+async function saveEditor() {
+  const callType = getActiveCallType();
+  const step = getActiveStep();
+  const draft = state.editorDraft;
+  if (!callType || !step || !draft) return;
+  state.editorError = '';
+  let scriptBlocks = step.script_blocks || [];
+  let script = safeText(step.script);
+  if (draft.mode === 'script_blocks') {
+    try {
+      const parsed = JSON.parse(draft.scriptBlocksText || '[]');
+      if (!Array.isArray(parsed)) throw new Error('script_blocks must be a JSON array.');
+      scriptBlocks = parsed;
+      script = '';
+    } catch (error) {
+      state.editorError = error.message || 'Invalid script_blocks JSON.';
+      renderCall();
+      return;
+    }
+  } else {
+    script = safeText(draft.script);
+    scriptBlocks = [];
+  }
+  const nextWorkspace = cloneWorkspace(state.workspace);
+  const ct = nextWorkspace?.workspace?.call_types?.find((item) => item.id === callType.id);
+  const target = ct?.steps?.find((item) => item.id === step.id);
+  if (!target) {
+    state.editorError = 'Could not find the current step to save.';
+    renderCall();
+    return;
+  }
+  target.title = safeText(draft.title);
+  target.sidebar_label = safeText(draft.sidebarLabel);
+  if (draft.mode === 'script_blocks') {
+    target.script_blocks = scriptBlocks;
+    target.script = '';
+  } else {
+    target.script = script;
+    delete target.script_blocks;
+  }
+  state.editorSaving = true;
+  renderCall();
+  try {
+    await saveWorkspace(state.user.uid, nextWorkspace);
+    state.workspace = nextWorkspace;
+    state.editorOpen = false;
+    state.editorDraft = null;
+    state.editorError = '';
+    state.editorSaving = false;
+    renderCall();
+  } catch (error) {
+    state.editorSaving = false;
+    state.editorError = error.message || 'Failed to save step.';
+    renderCall();
+  }
+}
+function renderEditorFab() {
+  return `<button class="edit-fab ${state.editorOpen ? 'active' : ''}" id="edit-fab" title="${state.editorOpen ? 'Save step' : 'Edit current step'}">${state.editorSaving ? '…' : state.editorOpen ? '✓' : '✎'}</button>`;
+}
+function renderEditorModal() {
+  const draft = state.editorDraft || { title: '', sidebarLabel: '', mode: 'script', script: '', scriptBlocksText: '[]' };
+  const isBlocks = draft.mode === 'script_blocks';
+  return `
+    <div class="modal-backdrop" id="editor-backdrop">
+      <div class="modal modal-editor">
+        <div class="modal-head">
+          <h3>Edit Current Step</h3>
+          <div class="row">
+            <button class="btn" id="editor-cancel">Cancel</button>
+          </div>
+        </div>
+        <div class="modal-body form-stack">
+          <div class="field"><label>Step label</label><input id="editor-sidebar" type="text" value="${escapeAttr(draft.sidebarLabel)}" /></div>
+          <div class="field"><label>Step title</label><input id="editor-title" type="text" value="${escapeAttr(draft.title)}" /></div>
+          <div class="field"><label>Script mode</label><input type="text" value="${isBlocks ? 'script_blocks (JSON)' : 'plain script'}" disabled /></div>
+          ${isBlocks
+            ? `<div class="field"><label>script_blocks JSON</label><textarea id="editor-blocks" class="editor-textarea">${escapeHtml(draft.scriptBlocksText)}</textarea></div>`
+            : `<div class="field"><label>Script</label><textarea id="editor-script" class="editor-textarea">${escapeHtml(draft.script)}</textarea></div>`}
+          <div class="editor-error">${escapeHtml(state.editorError || '')}</div>
+          <div class="editor-help">Tip: for block-based steps, edit the JSON carefully. For plain steps, edit the script text directly.</div>
+        </div>
+      </div>
+    </div>`;
+}
+function bindEditorModal() {
+  const bind = (id, key) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', (event) => {
+      if (!state.editorDraft) return;
+      state.editorDraft[key] = event.target.value;
+    });
+  };
+  bind('editor-sidebar', 'sidebarLabel');
+  bind('editor-title', 'title');
+  bind('editor-script', 'script');
+  bind('editor-blocks', 'scriptBlocksText');
+  const cancelBtn = document.getElementById('editor-cancel');
+  if (cancelBtn) cancelBtn.onclick = closeEditor;
+  const backdrop = document.getElementById('editor-backdrop');
+  if (backdrop) backdrop.onclick = (event) => { if (event.target.id === 'editor-backdrop') closeEditor(); };
+}
+
 function renderSettingsModal() {
   return `
     <div class="modal-backdrop" id="settings-backdrop">
@@ -400,8 +537,10 @@ function renderCall() {
           </div>
         </div>
       </div>
+      ${renderEditorFab()}
       ${state.clientInfoOpen ? renderClientInfoModal() : ''}
       ${state.quoteOpen ? renderQuoteModal() : ''}
+      ${state.editorOpen ? renderEditorModal() : ''}
     </div>`;
 
   bindCallHandlers();
@@ -471,8 +610,15 @@ function bindCallHandlers() {
     };
   });
 
+  const editFab = document.getElementById('edit-fab');
+  if (editFab) editFab.onclick = async () => {
+    if (state.editorSaving) return;
+    if (state.editorOpen) await saveEditor();
+    else openEditor();
+  };
   if (state.clientInfoOpen) bindClientInfoModal();
   if (state.quoteOpen) bindQuoteModal();
+  if (state.editorOpen) bindEditorModal();
 }
 
 async function lookupZillowInline() {
