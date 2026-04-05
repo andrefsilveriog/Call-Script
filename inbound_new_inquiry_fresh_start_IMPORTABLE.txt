@@ -1,0 +1,619 @@
+# Call Guide bulk-edit file
+# Fresh start minimal New Inquiry
+# IMPORT WITH MERGE
+schema_version: 1
+workspace:
+  theme: light
+  groups:
+    - id: inbound
+      name: Inbound
+      icon: "📥"
+    - id: outbound
+      name: Outbound
+      icon: "📤"
+  call_types:
+    - id: inbound_new_inquiry
+      name: "New Inquiry"
+      icon: "📞"
+      description: |
+        Clean runtime starter for New Inquiry with minimal exported fields and no legacy legend/key point clutter.
+      group_id: inbound
+      steps:
+        - id: "inbound_new_inquiry_s01"
+          kind: "main"
+          special_type: "standard"
+          step_number: "01"
+          sidebar_label: "Open"
+          title: "Opening"
+          script: |
+            “Joy of Cleaning, this is {{rep_name}} — how can I help you today?”
+            
+            → When they say they want a quote or information:
+            “Absolutely. I’ll just ask you a few quick questions so I can point you in the right direction and give you an accurate estimate, okay?”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s02"
+          branches:
+            - label: "Asked for price early"
+              color: "money"
+              target_id: "inbound_new_inquiry_b01_price"
+            - label: "Sounds rushed"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b01_rushed"
+            - label: "Not sure what they need"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b01_vague"
+        - id: "inbound_new_inquiry_b01_price"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "1A"
+          sidebar_label: "Price Early"
+          title: "Price Too Early"
+          script: |
+            “Great question. The final price depends on the size, condition, and exactly what level of cleaning you need. Let me get a couple quick details first so I don’t give you the wrong number.”
+            
+          parent_step_id: "inbound_new_inquiry_s01"
+          next_step_id: "inbound_new_inquiry_s02"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b01_rushed"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "1B"
+          sidebar_label: "Rushed"
+          title: "Client Is Rushed"
+          script: |
+            “Absolutely — I’ll keep this quick. I just need two or three details so I can point you in the right direction and avoid giving you the wrong quote.”
+            
+          parent_step_id: "inbound_new_inquiry_s01"
+          next_step_id: "inbound_new_inquiry_s02"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b01_vague"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "1C"
+          sidebar_label: "Vague"
+          title: "Client Is Vague"
+          script: |
+            “No problem — I’ll make this easy. I’ll ask you a few quick questions about the home and what you’re looking for, and then I’ll guide you from there.”
+            
+          parent_step_id: "inbound_new_inquiry_s01"
+          next_step_id: "inbound_new_inquiry_s02"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s02"
+          kind: "main"
+          special_type: "standard"
+          step_number: "02"
+          sidebar_label: "Info"
+          title: "Contact Info + Timing"
+          script: |
+            “Can I get your first and last name?”
+            → “What’s the best email to send everything to?”
+            → “And is this the best number to reach you?”
+            → “When were you hoping to have the cleaning done?”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s03"
+          branches:
+            - label: "Info resistance"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b02_resist"
+        - id: "inbound_new_inquiry_b02_resist"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "2A"
+          sidebar_label: "Resistance"
+          title: "Info Resistance"
+          script: |
+            “Totally understand — I just like to get the best contact info in case the call drops and so I can send you the quote and details in writing. Then we’ll keep moving.”
+            
+          parent_step_id: "inbound_new_inquiry_s02"
+          next_step_id: "inbound_new_inquiry_s03"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s03"
+          kind: "main"
+          special_type: "standard"
+          step_number: "03"
+          sidebar_label: "Intent"
+          title: "One-Time or Recurring"
+          script: |
+            “Before I size this out, are you looking for a one-time cleaning, or are you hoping for ongoing recurring service?”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s04"
+          branches:
+            - label: "One-time"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b03_onetime"
+            - label: "Recurring"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b03_recurring"
+        - id: "inbound_new_inquiry_b03_onetime"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "3A"
+          sidebar_label: "One-Time"
+          title: "One-Time Cleaning"
+          script: |
+            “Got it — and is this more of a deep / initial clean, a move-in or move-out, post-construction, or just a lighter one-time priority clean?”
+            
+          parent_step_id: "inbound_new_inquiry_s03"
+          next_step_id: "inbound_new_inquiry_s04"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b03_recurring"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "3B"
+          sidebar_label: "Recurring"
+          title: "Recurring Service"
+          script: |
+            “Perfect — and is the home already in pretty good shape for maintenance, or do you feel like it needs that first deeper reset before we put it on a regular schedule?”
+            
+          parent_step_id: "inbound_new_inquiry_s03"
+          next_step_id: "inbound_new_inquiry_s04"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s04"
+          kind: "main"
+          special_type: "standard"
+          step_number: "04"
+          sidebar_label: "Path"
+          title: "Service Path + Property Details"
+          script: |
+            “What’s the property address?”
+            
+            → After lookup:
+            “I’m seeing about [X] square feet, [X] bedrooms, and [X] bathrooms — does that sound right?”
+            
+            → “On a scale from 1 to 10, where 1 means almost perfect and 10 means very, very dirty, how would you rate the home right now?”
+            
+            → “Just so I route this correctly, is this shaping up more like a deep / initial clean, move-in / move-out, post-construction, true maintenance, or a lighter custom one-time?”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s05"
+          branches:
+            - label: "Deep / Initial"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b04_deep"
+            - label: "Move In / Out"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b04_move"
+            - label: "Post-Construction"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b04_post"
+            - label: "Regular / Maintenance"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b04_regular"
+            - label: "Unknown square footage"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b04_unknown"
+            - label: "Doesn\u2019t need deep clean"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b04_ziah"
+            - label: "Wants something cheaper"
+              color: "money"
+              target_id: "inbound_new_inquiry_b04_budget"
+        - id: "inbound_new_inquiry_b04_deep"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "4A"
+          sidebar_label: "Deep"
+          title: "Deep / Initial Path"
+          script: |
+            “Perfect — for a first-time reset, that would go down our deep / initial cleaning path.”
+            
+          parent_step_id: "inbound_new_inquiry_s04"
+          next_step_id: "inbound_new_inquiry_s05"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b04_move"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "4B"
+          sidebar_label: "Move"
+          title: "Move In / Out Path"
+          script: |
+            “Got it — that would go down our move-in / move-out path so I can frame the quote around getting the place ready.”
+            
+          parent_step_id: "inbound_new_inquiry_s04"
+          next_step_id: "inbound_new_inquiry_s05"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b04_post"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "4C"
+          sidebar_label: "Post"
+          title: "Post-Construction Path"
+          script: |
+            “Understood — that would go down our post-construction path, because the level of dust and detail work is different from a standard cleaning.”
+            
+          parent_step_id: "inbound_new_inquiry_s04"
+          next_step_id: "inbound_new_inquiry_s05"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b04_regular"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "4D"
+          sidebar_label: "Regular"
+          title: "Regular / Maintenance Path"
+          script: |
+            “Got it — long-term maintenance makes sense for a lot of people. Let me verify the home and the condition first so I can tell whether you’re a true maintenance fit or whether we should start with a deeper reset.”
+            
+          parent_step_id: "inbound_new_inquiry_s04"
+          next_step_id: "inbound_new_inquiry_s05"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b04_unknown"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "4E"
+          sidebar_label: "Unknown"
+          title: "Unknown Details"
+          script: |
+            “That’s okay — bedrooms, bathrooms, the condition of the home, and the areas that need the most attention are enough for me to size this out accurately.”
+            
+          parent_step_id: "inbound_new_inquiry_s04"
+          next_step_id: "inbound_new_inquiry_s05"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b04_ziah"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "4F"
+          sidebar_label: "Ziah"
+          title: "Skip Deep Cleaning"
+          script: |
+            “That’s fair — and we can always confirm that. If you’re interested in recurring service, what we can do is have our field manager, Ziah, take a look and let you know if a deep cleaning is actually necessary or if we can go straight into maintenance. That way you’re not paying for anything you don’t need.”
+            
+          parent_step_id: "inbound_new_inquiry_s04"
+          next_step_id: "inbound_new_inquiry_s05"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b04_budget"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "4G"
+          sidebar_label: "Budget"
+          title: "Budget / A La Carte"
+          script: |
+            “Got it — if you’re looking to stay within a specific budget, we do have a more flexible option. We can narrow the scope to the areas that matter most first and build it around a fixed amount of time instead of forcing the full package.”
+            
+          parent_step_id: "inbound_new_inquiry_s04"
+          next_step_id: "inbound_new_inquiry_s05"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s05"
+          kind: "main"
+          special_type: "standard"
+          step_number: "05"
+          sidebar_label: "Checklist"
+          title: "Scope + Checklist"
+          script: |
+            “Perfect — now let me frame the scope correctly for the type of cleaning you need, because what’s included changes depending on whether this is deep / initial, move-in / move-out, post-construction, or regular maintenance.”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s06"
+          branches:
+            - label: "Deep / Initial checklist"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b05_deeplist"
+            - label: "Move In / Out checklist"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b05_movelist"
+            - label: "Post-Construction checklist"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b05_postlist"
+            - label: "Regular / Maintenance checklist"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b05_regularlist"
+        - id: "inbound_new_inquiry_b05_deeplist"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "5A"
+          sidebar_label: "Deep List"
+          title: "Deep / Initial Checklist"
+          script: |
+            “For a deep / initial cleaning, the goal is a full reset. That includes the heavier hand-wipe detail work — baseboards, blinds and window sills, flat surfaces, furniture areas, bathrooms, and the larger reset tasks that make the home feel back to baseline. Things like oven interior, refrigerator interior, inside cabinets and drawers, windows / glass doors, and similar items are add-ons and need to be called out clearly.”
+            
+          parent_step_id: "inbound_new_inquiry_s05"
+          next_step_id: "inbound_new_inquiry_s06"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b05_movelist"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "5B"
+          sidebar_label: "Move List"
+          title: "Move In / Out Checklist"
+          script: |
+            “For move-in / move-out, the goal is getting the place ready. That usually includes a more vacancy-oriented reset — appliances, cabinets, scuff cleanup, shelves, closets, and the surfaces that matter when a place is empty and needs to feel ready. Windows and glass doors can still be treated as an add-on, so I’ll call that out separately if you want it included.”
+            
+          parent_step_id: "inbound_new_inquiry_s05"
+          next_step_id: "inbound_new_inquiry_s06"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b05_postlist"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "5C"
+          sidebar_label: "Post List"
+          title: "Post-Construction Checklist"
+          script: |
+            “For post-construction, the scope is closer to a dust-and-debris reset after work has been done. That usually includes the heavier wipe-down work on walls as needed, fixtures, vents, surfaces, floors, and the detailed cleanup that comes after construction dust settles. It’s not just a regular cleaning with a different name.”
+            
+          parent_step_id: "inbound_new_inquiry_s05"
+          next_step_id: "inbound_new_inquiry_s06"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b05_regularlist"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "5D"
+          sidebar_label: "Regular List"
+          title: "Regular / Maintenance Checklist"
+          script: |
+            “For regular maintenance, the scope is lighter and more upkeep-oriented. It covers the recurring essentials, but a lot of the heavier detail work moves into as-needed or add-on territory. That’s why I want to verify the condition first before saying maintenance is the right starting point.”
+            
+          parent_step_id: "inbound_new_inquiry_s05"
+          next_step_id: "inbound_new_inquiry_s06"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s06"
+          kind: "main"
+          special_type: "standard"
+          step_number: "06"
+          sidebar_label: "Why"
+          title: "Why Now"
+          script: |
+            “What made you decide to get a cleaning now?”
+            
+            OR
+            
+            “What’s the biggest thing you want this cleaning to solve for you?”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s07"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s07"
+          kind: "main"
+          special_type: "standard"
+          step_number: "07"
+          sidebar_label: "Value"
+          title: "Value Frame"
+          script: |
+            “Based on what you told me, what I’d recommend is the right service path for the home. And here’s what comes with every cleaning we do: a background-checked, trained team, all supplies included, a fully insured and bonded company, and a focus on getting it done right — not just getting it done fast.”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s08"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s08"
+          kind: "main"
+          special_type: "standard"
+          step_number: "08"
+          sidebar_label: "Price"
+          title: "Investment"
+          script: |
+            “Based on the home, the condition, and the scope we discussed, for a full [service type] you’re looking at $X.
+            
+            That includes the core service we talked about, all supplies and equipment, a background-checked insured team, and the level of detail needed to get it done right the first time.”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s09"
+          branches:
+            - label: "That\u2019s expensive"
+              color: "danger"
+              target_id: "inbound_new_inquiry_b08_expensive"
+            - label: "Comparing prices"
+              color: "money"
+              target_id: "inbound_new_inquiry_b08_compare"
+            - label: "Wants cheaper option"
+              color: "money"
+              target_id: "inbound_new_inquiry_b08_cheaper"
+            - label: "Why not hourly?"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b08_hourly"
+        - id: "inbound_new_inquiry_b08_expensive"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "8A"
+          sidebar_label: "Expensive"
+          title: "Price Objection"
+          script: |
+            “I completely understand — and just to be transparent, we’re not the cheapest option, but we really stand behind the quality of our work. We have over 800 five-star reviews, we’re fully insured and bonded, our people are background-checked, and we offer a 100% satisfaction guarantee. If anything’s not right, we fix it — and if you’re still not happy, you get your money back. So it really comes down to getting it done right the first time.”
+            
+          parent_step_id: "inbound_new_inquiry_s08"
+          next_step_id: "inbound_new_inquiry_s09"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b08_compare"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "8B"
+          sidebar_label: "Compare"
+          title: "Comparing Prices"
+          script: |
+            “That makes sense — most people do compare. I’d just make sure you’re comparing the same level of service, because two quotes can look close on price and still be completely different in scope, detail, and reliability.”
+            
+          parent_step_id: "inbound_new_inquiry_s08"
+          next_step_id: "inbound_new_inquiry_s09"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b08_cheaper"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "8C"
+          sidebar_label: "Cheaper"
+          title: "Cheaper Option"
+          script: |
+            “Totally fair — a lot of people look at a few options before deciding. The main difference usually comes down to the level of detail, consistency, and protection. If needed, we can absolutely tailor the scope to focus on what matters most first.”
+            
+          parent_step_id: "inbound_new_inquiry_s08"
+          next_step_id: "inbound_new_inquiry_s09"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b08_hourly"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "8D"
+          sidebar_label: "Hourly"
+          title: "Why Not Hourly?"
+          script: |
+            “Good question — when companies charge hourly, the incentive is to rush so they can get to the next job. We don’t want that. We price based on the home and the level of work so the team’s focus is doing it right, not racing the clock.”
+            
+          parent_step_id: "inbound_new_inquiry_s08"
+          next_step_id: "inbound_new_inquiry_s09"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s09"
+          kind: "main"
+          special_type: "standard"
+          step_number: "09"
+          sidebar_label: "Close"
+          title: "Close"
+          script: |
+            “Right now I have availability on [Day 1] or [Day 2]. Which one works better for you?”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s10"
+          branches:
+            - label: "Need to think"
+              color: "money"
+              target_id: "inbound_new_inquiry_b09_think"
+            - label: "Talk to spouse"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b09_spouse"
+            - label: "Quality concern"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b09_quality"
+            - label: "Strangers in home"
+              color: "decision"
+              target_id: "inbound_new_inquiry_b09_strangers"
+        - id: "inbound_new_inquiry_b09_think"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "9A"
+          sidebar_label: "Think"
+          title: "Need to Think"
+          script: |
+            “No problem at all — I’d never want you to feel rushed. Can I ask what specifically you want to think through? Is it the investment, the timing, whether we’re the right fit, or something else?”
+            
+          parent_step_id: "inbound_new_inquiry_s09"
+          next_step_id: "inbound_new_inquiry_s10"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b09_spouse"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "9B"
+          sidebar_label: "Spouse"
+          title: "Talk to Spouse"
+          script: |
+            “Of course — totally understand. Can I ask what you think they’ll be most concerned about? Is it the investment, the schedule, or just making sure we’re the right fit?”
+            
+          parent_step_id: "inbound_new_inquiry_s09"
+          next_step_id: "inbound_new_inquiry_s10"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b09_quality"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "9C"
+          sidebar_label: "Quality"
+          title: "Quality Concern"
+          script: |
+            “That’s a fair concern — you don’t know us yet. That’s exactly why we offer a 100% satisfaction guarantee. If anything’s not right, we come back and make it right. And if you’re still not happy, you get your money back.”
+            
+          parent_step_id: "inbound_new_inquiry_s09"
+          next_step_id: "inbound_new_inquiry_s10"
+          branches:
+            []
+        - id: "inbound_new_inquiry_b09_strangers"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "9D"
+          sidebar_label: "Trust"
+          title: "Strangers in Home"
+          script: |
+            “Totally understand — it’s your home. Every person on our team is background-checked, and we’re fully insured and bonded. And once you’ve had your first cleaning, we keep the same team when possible so it stops feeling like strangers.”
+            
+          parent_step_id: "inbound_new_inquiry_s09"
+          next_step_id: "inbound_new_inquiry_s10"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s10"
+          kind: "main"
+          special_type: "standard"
+          step_number: "10"
+          sidebar_label: "Schedule"
+          title: "Scheduling"
+          script: |
+            “I have [Day] at [Time], or [Day] [morning/afternoon] — which works better for you?”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s11"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s11"
+          kind: "main"
+          special_type: "standard"
+          step_number: "11"
+          sidebar_label: "Deposit"
+          title: "Deposit"
+          script: |
+            “Perfect — I’ve got you for [Day] at [Time] for the [service type]. To actually lock that in, we take a 30% deposit right away. For move-in/out and post-construction cleanings, it’s 50%. I can help you with that now, or you can take care of it through the quote link while I’m still on the phone with you.”
+            
+          parent_step_id: ""
+          next_step_id: "inbound_new_inquiry_s12"
+          branches:
+            - label: "Deposit resistance"
+              color: "money"
+              target_id: "inbound_new_inquiry_b11_resist"
+        - id: "inbound_new_inquiry_b11_resist"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "11A"
+          sidebar_label: "Resistance"
+          title: "Deposit Resistance"
+          script: |
+            “Absolutely — the deposit is just what locks the time in so the spot doesn’t get taken. I can help you take care of it now, or you can do it through the quote link. As soon as it’s in, the booking is confirmed.”
+            
+          parent_step_id: "inbound_new_inquiry_s11"
+          next_step_id: "inbound_new_inquiry_s12"
+          branches:
+            []
+        - id: "inbound_new_inquiry_s12"
+          kind: "main"
+          special_type: "standard"
+          step_number: "12"
+          sidebar_label: "Setup"
+          title: "Post-Close Setup"
+          script: |
+            “Perfect — to make sure everything goes smoothly on the day of the cleaning, I’ll just go over a few quick details with you: parking, access, trash, flooring, bedrooms and bathrooms, pets, focus areas, and any add-ons you want included.”
+            
+          parent_step_id: ""
+          next_step_id: ""
+          branches:
+            - label: "Add-on pricing"
+              color: "flow"
+              target_id: "inbound_new_inquiry_b12_addon"
+        - id: "inbound_new_inquiry_b12_addon"
+          kind: "branch"
+          special_type: "standard"
+          step_number: "12A"
+          sidebar_label: "Add-On"
+          title: "Add-On Pricing"
+          script: |
+            “It depends on which add-on you’d like included, but I can absolutely break it down for you clearly item by item.”
+            
+          parent_step_id: "inbound_new_inquiry_s12"
+          next_step_id: ""
+          branches:
+            []

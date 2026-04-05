@@ -1,0 +1,67 @@
+FRESH START TXT RULES
+
+Goal
+Keep the runtime call screen minimal.
+Inside a call, the screen should only show:
+- top step tabs
+- the script content
+- any fields, dropdowns, or calculator tools that belong inside the script
+- Back / Next buttons below
+
+Do not rely on these runtime sections anymore
+- subtitle / legend
+- key points
+- tone cue
+- extra notes
+- vertical step banner / giant step number
+
+Recommended step structure
+For each step, keep only what is useful at runtime:
+- id
+- kind
+- special_type
+- step_number
+- sidebar_label
+- title
+- script
+- parent_step_id
+- next_step_id
+- branches
+
+Use titles and sidebar labels for organization, but do not use legends or key points as required content.
+
+Navigation
+Runtime navigation should be simple:
+- Back
+- Next
+Branching logic can still exist in the data, but do not rely on visible branch buttons in the runtime view.
+
+Writing guidance
+- keep each step focused on one job
+- put the actual rep wording inside script
+- do not use filler like X when a value should be dynamic later
+- if a value is not known yet, either leave it blank or write around it naturally
+
+Current variable families
+Rep
+- {{rep_name}}
+- {{rep_first_name}}
+
+Client
+- {{client_name}}
+- {{client_first_name}}
+- {{client_email}}
+- {{client_phone}}
+- {{client_address}}
+
+Quote / property
+- {{sqft}}
+- {{beds}}
+- {{baths}}
+- {{service_type}}
+- {{dirt_level}}
+- {{one_time_price}}
+- {{weekly_price}}
+- {{biweekly_price}}
+- {{monthly_price}}
+- {{add_on_summary}}

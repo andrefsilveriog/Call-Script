@@ -881,70 +881,13 @@ body[data-theme="dark"] .auth-card p {
   }
 }
 
-.script-card-blocks {
-  min-height: 0;
-}
 
-.script-block-stack {
-  display: grid;
-  gap: 14px;
-}
-
-.script-line {
-  font-size: 22px;
-  line-height: 1.62;
-  font-style: normal;
-  white-space: pre-wrap;
-}
-
-.script-line-dynamic {
-  color: rgba(255,255,255,0.88);
-}
-
-.script-inline-card {
-  display: grid;
-  gap: 6px;
-  margin-top: -2px;
-  padding: 12px 14px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.14);
-}
-
-.script-inline-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: rgba(255,255,255,0.78);
-}
-
-.script-inline-input {
-  width: 100%;
-  min-height: 44px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.96);
-  color: #0e244d;
-  padding: 0 12px;
-  font-size: 16px;
-  outline: none;
-}
-
-.script-inline-input:focus {
-  border-color: #8cc7ff;
-  box-shadow: 0 0 0 2px rgba(140,199,255,0.18);
-}
-
-.script-inline-actions {
-  margin-top: -4px;
-  margin-bottom: 2px;
-}
-
-body[data-theme="dark"] .script-inline-card {
-  background: rgba(255,255,255,0.04);
-  border-color: rgba(255,255,255,0.1);
-}
-
-body[data-theme="dark"] .script-inline-input {
-  background: rgba(10, 18, 34, 0.96);
-  color: #eef4ff;
-  border-color: rgba(255,255,255,0.16);
-}
+.shell-minimal { max-width: 1280px; }
+.content-panel-solo { max-width: 1120px; margin: 0 auto; }
+.script-card { margin-bottom: 18px; min-height: 240px; }
+.script-card textarea { width: 100%; min-height: 220px; background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,.22); padding: 14px; }
+.action-row-simple { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 0; }
+.nav-btn { height: 62px; font-size: 18px; }
+.nav-btn[disabled] { opacity: .45; cursor: default; }
+.flow-topbar { margin-bottom: 18px; }
+.step-tabs { row-gap: 6px; }
