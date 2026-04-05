@@ -35,7 +35,6 @@ const state = {
   settingsDraft: { repName: "", theme: "light" },
   currentCall: blankCurrentCall(),
   quoteModalOpen: false,
-  stepHistory: [],
 };
 
 const BRANCH_TONES = {
@@ -635,65 +634,9 @@ function stepById(flow, stepId) {
 function selectFlow(flowId) {
   state.activeFlowId = flowId;
   state.screen = "flow";
-  state.stepHistory = [];
   const flow = currentFlow();
   state.activeStepId = topSteps(flow)[0]?.id || flow?.steps?.[0]?.id || null;
   render();
-}
-
-function navigateToStep(stepId, options = {}) {
-  const { pushHistory = true } = options;
-  const flow = currentFlow();
-  if (!flow || !stepId) return;
-  const exists = flow.steps.some((step) => step.id === stepId);
-  if (!exists) return;
-  if (pushHistory && state.activeStepId && state.activeStepId !== stepId) {
-    state.stepHistory = [...state.stepHistory, state.activeStepId];
-  }
-  state.activeStepId = stepId;
-  render();
-}
-
-function goBackStep() {
-  if (state.stepHistory.length) {
-    const history = [...state.stepHistory];
-    const prev = history.pop();
-    state.stepHistory = history;
-    if (prev) {
-      state.activeStepId = prev;
-      render();
-      return;
-    }
-  }
-
-  const flow = currentFlow();
-  const step = currentStep();
-  if (!flow || !step) return;
-  const visibleSteps = sortByOrder(flow.steps).filter((item) => item.main);
-  const index = visibleSteps.findIndex((item) => item.id === step.id);
-  if (index > 0) {
-    state.activeStepId = visibleSteps[index - 1].id;
-    render();
-  }
-}
-
-function resolveNextStepId(step, flow = currentFlow()) {
-  if (!step || !flow) return "";
-  const blocks = Array.isArray(step.scriptBlocks) ? step.scriptBlocks : [];
-  for (const block of blocks) {
-    if (!block || String(block.type || '').toLowerCase() !== 'field' || !block.routes) continue;
-    const selected = String(getCurrentCallValue(block.field || '') || '').trim();
-    if (!selected) continue;
-    const direct = block.routes[selected];
-    if (direct && flow.steps.some((item) => item.id === direct)) return direct;
-    const lowered = selected.toLowerCase();
-    for (const [key, targetId] of Object.entries(block.routes)) {
-      if (String(key).trim().toLowerCase() === lowered && flow.steps.some((item) => item.id === targetId)) {
-        return targetId;
-      }
-    }
-  }
-  return step.next || '';
 }
 
 async function toggleEditMode() {
@@ -1557,18 +1500,12 @@ function renderScript(step) {
 
 function renderActionRow(step, flow) {
   const buttons = [];
-  const hasBack = state.stepHistory.length > 0 || sortByOrder(flow.steps).filter((item) => item.main).findIndex((item) => item.id === step.id) > 0;
+  const mainSteps = sortByOrder(flow.steps).filter((item) => item.main);
+  const currentMainIndex = mainSteps.findIndex((item) => item.id === step.id || item.id === step.parentId);
+  const hasBack = state.stepHistory.length > 0 || currentMainIndex > 0 || !!step.parentId;
+
   if (hasBack) {
     buttons.push(`<button class="ghost-btn" data-action="go-back-step">Back</button>`);
-  }
-
-  if (state.editMode) {
-    const branches = step.branches || [];
-    for (const branch of branches) {
-      const target = flow.steps.find((item) => item.id === branch.targetId);
-      if (!branch.targetId || !target) continue;
-      buttons.push(`<button class="branch-btn" data-action="go-step" data-step-id="${escapeHtml(branch.targetId)}" style="background:${BRANCH_TONES[branch.color] || "var(--white)"};">${escapeHtml(branch.label || "Branch")}</button>`);
-    }
   }
 
   const nextId = resolveNextStepId(step, flow);
@@ -1860,11 +1797,10 @@ function onClick(event) {
     return;
   }
   if (action === "toggle-edit") { toggleEditMode(); return; }
-  if (action === "go-home") { state.screen = "home"; state.stepHistory = []; render(); return; }
+  if (action === "go-home") { state.screen = "home"; render(); return; }
   if (action === "select-group") { state.activeGroupId = button.dataset.groupId; render(); return; }
   if (action === "open-flow") { selectFlow(button.dataset.flowId); return; }
-  if (action === "go-step") { navigateToStep(button.dataset.stepId); return; }
-  if (action === "go-back-step") { goBackStep(); return; }
+  if (action === "go-step") { state.activeStepId = button.dataset.stepId; render(); return; }
   if (action === "toggle-settings") {
     state.settingsOpen = !state.settingsOpen;
     if (state.settingsOpen) {
