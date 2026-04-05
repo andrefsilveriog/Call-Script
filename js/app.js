@@ -197,11 +197,18 @@ function currentValue(field) {
   return state.callContext[field] ?? '';
 }
 
-function updateField(field, value) {
-  if (field === 'client_phone') value = formatPhone(value);
+function normalizeFieldValue(field, value) {
+  if (field === 'client_phone') return formatPhone(value);
+  return value;
+}
+
+function updateField(field, value, options = {}) {
+  const { renderAfter = true } = options;
+  value = normalizeFieldValue(field, value);
   state.callContext[field] = value;
   persistCallContext();
-  render();
+  if (renderAfter) render();
+  return value;
 }
 
 async function lookupZillowInline() {
@@ -431,9 +438,29 @@ function renderCall() {
   appEl.querySelectorAll('[data-step]').forEach((btn) => btn.onclick = () => { state.activeStepId = btn.dataset.step; renderCall(); });
   appEl.querySelectorAll('[data-field]').forEach((el) => {
     const field = el.dataset.field;
-    const handler = (event) => updateField(field, event.target.value);
-    el.addEventListener('input', handler);
-    el.addEventListener('change', handler);
+    const tag = (el.tagName || '').toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const isTextLike = tag === 'input' && ['text', 'email', 'tel', 'search', 'number', ''].includes(type);
+
+    if (isTextLike) {
+      el.addEventListener('input', (event) => {
+        const normalized = updateField(field, event.target.value, { renderAfter: false });
+        if (normalized !== event.target.value) event.target.value = normalized;
+      });
+      el.addEventListener('blur', (event) => {
+        const normalized = updateField(field, event.target.value, { renderAfter: true });
+        if (normalized !== event.target.value) event.target.value = normalized;
+      });
+      el.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const normalized = updateField(field, event.target.value, { renderAfter: true });
+          if (normalized !== event.target.value) event.target.value = normalized;
+        }
+      });
+    } else {
+      el.addEventListener('change', (event) => updateField(field, event.target.value, { renderAfter: true }));
+    }
   });
   appEl.querySelectorAll('[data-action]').forEach((btn) => btn.onclick = handleActionClick);
   if (state.quoteOpen) bindQuoteModal();
@@ -552,8 +579,7 @@ function renderQuoteModal() {
 
 function bindQuoteModal() {
   const draft = state.quoteDraft;
-  const bind = (id, cb) => { const el = document.getElementById(id); if (el) el.oninput = cb, el.onchange = cb; };
-  const refreshDraft = () => {
+  const syncDraft = () => {
     draft.address = valueOf('quote-address');
     draft.sqft = valueOf('quote-sqft');
     draft.serviceType = valueOf('quote-service');
@@ -563,9 +589,28 @@ function bindQuoteModal() {
     draft.addOns.windows = Number(valueOf('quote-windows') || 0);
     draft.addOns.pets = Number(valueOf('quote-pets') || 0);
     state.quoteDraft = draft;
-    renderCall();
   };
-  ['quote-address', 'quote-sqft', 'quote-service', 'quote-dirt', 'quote-fridge', 'quote-oven', 'quote-windows', 'quote-pets'].forEach((id) => bind(id, refreshDraft));
+  const bind = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const tag = (el.tagName || '').toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const isTextLike = tag === 'input' && ['text', 'email', 'tel', 'search', 'number', ''].includes(type);
+    if (isTextLike) {
+      el.addEventListener('input', syncDraft);
+      el.addEventListener('blur', () => { syncDraft(); renderCall(); });
+      el.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          syncDraft();
+          renderCall();
+        }
+      });
+    } else {
+      el.addEventListener('change', () => { syncDraft(); renderCall(); });
+    }
+  };
+  ['quote-address', 'quote-sqft', 'quote-service', 'quote-dirt', 'quote-fridge', 'quote-oven', 'quote-windows', 'quote-pets'].forEach((id) => bind(id));
   document.getElementById('quote-close-top').onclick = closeQuoteTool;
   document.getElementById('quote-apply-top').onclick = applyQuoteToCall;
   document.getElementById('quote-apply-bottom').onclick = applyQuoteToCall;
