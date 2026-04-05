@@ -35,7 +35,6 @@ const state = {
   settingsDraft: { repName: "", theme: "light" },
   currentCall: blankCurrentCall(),
   quoteModalOpen: false,
-  inlineLookup: { loading: false, error: "" },
 };
 
 const BRANCH_TONES = {
@@ -59,6 +58,26 @@ const ZILLOW_HEADERS = {
   "Content-Type": "application/json",
 };
 
+const CALL_FIELD_BINDINGS = {
+  client_name: "clientName",
+  client_first_name: "clientName",
+  client_email: "clientEmail",
+  client_phone: "clientPhone",
+  client_address: "clientAddress",
+  sqft: "sqft",
+  beds: "beds",
+  baths: "baths",
+  service_type: "serviceType",
+  dirt_level: "dirtLevel",
+  one_time_price: "oneTimePrice",
+  weekly_price: "weeklyPrice",
+  biweekly_price: "biweeklyPrice",
+  monthly_price: "monthlyPrice",
+  add_on_summary: "addOnSummary",
+  service_intent: "serviceIntent",
+  cleaning_path: "cleaningPath",
+};
+
 function blankCurrentCall() {
   return {
     clientName: "",
@@ -69,6 +88,8 @@ function blankCurrentCall() {
     beds: "",
     baths: "",
     serviceType: "",
+    serviceIntent: "",
+    cleaningPath: "",
     dirtLevel: "",
     oneTimePrice: "",
     weeklyPrice: "",
@@ -85,6 +106,117 @@ function formatUsPhoneInput(value = "") {
   if (digits.length < 4) return `(${digits}`;
   if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function normalizeCallFieldKey(field = "") {
+  const raw = String(field || "").trim();
+  if (!raw) return "";
+  if (CALL_FIELD_BINDINGS[raw]) return CALL_FIELD_BINDINGS[raw];
+  return raw;
+}
+
+function getCurrentCallValue(field = "") {
+  const key = normalizeCallFieldKey(field);
+  if (!key) return "";
+  return state.currentCall?.[key] ?? "";
+}
+
+function setCurrentCallValue(field = "", value = "") {
+  const key = normalizeCallFieldKey(field);
+  if (!key) return;
+  state.currentCall[key] = value;
+}
+
+function titleCaseWords(value = "") {
+  return String(value || "")
+    .split(/[_-]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatCallFieldDisplay(field = "") {
+  const key = normalizeCallFieldKey(field);
+  return key ? titleCaseWords(key.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase()) : "Field";
+}
+
+function shouldShowBlock(block) {
+  const any = Array.isArray(block.showWhenAny) ? block.showWhenAny : [];
+  const all = Array.isArray(block.showWhenAll) ? block.showWhenAll : [];
+  if (all.length && !all.every((item) => String(getCurrentCallValue(item) || "").trim())) return false;
+  if (any.length && !any.some((item) => String(getCurrentCallValue(item) || "").trim())) return false;
+  return true;
+}
+
+function actionNameToDataAction(action = "") {
+  const map = {
+    lookup_zillow: "lookup-zillow",
+    open_quote_tool: "open-quote-modal",
+    open_quote_modal: "open-quote-modal",
+    apply_latest_quote: "pull-quote-context",
+    pull_quote_context: "pull-quote-context",
+    clear_current_call: "clear-current-call",
+  };
+  return map[action] || action;
+}
+
+function fieldInputType(input = "text") {
+  const value = String(input || "text").toLowerCase();
+  if (["text", "email", "tel", "number"].includes(value)) return value;
+  if (value === "address") return "text";
+  return "text";
+}
+
+function defaultPlaceholderForField(field = "") {
+  const key = normalizeCallFieldKey(field);
+  const defaults = {
+    clientName: "Jane Smith",
+    clientEmail: "jane@email.com",
+    clientPhone: "(727) 555-0199",
+    clientAddress: "833 Marco Dr NE, St Petersburg, FL 33702",
+    sqft: "1700",
+    beds: "3",
+    baths: "2",
+    dirtLevel: "1-10",
+    serviceType: "Deep / Move-Out / Post-Construction / Maintenance",
+    serviceIntent: "One-time or recurring",
+    cleaningPath: "Deep / Move-Out / Post-Construction / Maintenance",
+    oneTimePrice: "$0",
+    weeklyPrice: "$0",
+    biweeklyPrice: "$0",
+    monthlyPrice: "$0",
+    addOnSummary: "Windows x 8 • Fridge x 1",
+  };
+  return defaults[key] || "";
+}
+
+async function lookupZillowForCurrentAddress({ silent = false } = {}) {
+  const address = String(getCurrentCallValue("client_address") || "").trim();
+  if (!address) {
+    if (!silent) notify("Enter an address first.", "error");
+    return null;
+  }
+  try {
+    if (!silent) notify("Looking up property…", "info");
+    const response = await fetch(`https://${ZILLOW_API_HOST}/byaddress?propertyaddress=${encodeURIComponent(address)}`, { headers: ZILLOW_HEADERS });
+    if (!response.ok) {
+      const msg = await response.text();
+      throw new Error(`Lookup failed (${response.status}) ${msg.slice(0, 120)}`);
+    }
+    const data = await response.json();
+    setCurrentCallValue("client_address", address);
+    setCurrentCallValue("sqft", data["Area(sqft)"] != null ? String(Math.round(Number(data["Area(sqft)"]))) : "");
+    setCurrentCallValue("beds", data.Bedrooms != null ? String(data.Bedrooms) : "");
+    setCurrentCallValue("baths", data.Bathrooms != null ? String(data.Bathrooms) : "");
+    saveCurrentCallContext();
+    if (!silent) notify("Property loaded.", "success");
+    render();
+    return data;
+  } catch (error) {
+    console.error(error);
+    if (!silent) notify(error.message || "Could not load property.", "error");
+    return null;
+  }
 }
 
 function currentCallStorageKey(uid = state.user?.uid) {
@@ -137,71 +269,6 @@ function callContextSummary() {
     data.serviceType ? `Service: ${data.serviceType}` : null,
     data.oneTimePrice ? `One-time: ${data.oneTimePrice}` : null,
   ].filter(Boolean).join("\n");
-}
-
-
-function formatMaybeNumber(value) {
-  if (value === null || value === undefined || value === "") return "";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return String(value);
-  return Number.isInteger(num) ? String(num) : String(num);
-}
-
-function buildResolvedAddress(raw = {}) {
-  return [raw.streetAddress, raw.city, raw.state, raw.zipcode].filter(Boolean).join(", ");
-}
-
-function buildPropertyConfirmationLine() {
-  const call = state.currentCall || blankCurrentCall();
-  const sqft = call.sqft || "—";
-  const beds = call.beds || "—";
-  const baths = call.baths || "—";
-  return `“I’m seeing about ${sqft} square feet, ${beds} bedrooms, and ${baths} bathrooms — does that sound right?”`;
-}
-
-function renderInlineText(value = "") {
-  return escapeHtml(String(value || "")).replaceAll("\n", "<br>");
-}
-
-function matchesScriptPrompt(line = "", patterns = []) {
-  const normalized = String(line || "").trim().toLowerCase();
-  return patterns.some((pattern) => normalized.includes(pattern));
-}
-
-async function lookupAddressInline() {
-  const address = (state.currentCall?.clientAddress || "").trim();
-  if (!address) {
-    notify("Enter an address first.", "error");
-    return;
-  }
-  state.inlineLookup = { loading: true, error: "" };
-  render();
-  try {
-    const response = await fetch(`https://${ZILLOW_API_HOST}/byaddress?propertyaddress=${encodeURIComponent(address)}`, {
-      headers: ZILLOW_HEADERS,
-    });
-    if (!response.ok) {
-      const txt = await response.text();
-      throw new Error(`Lookup failed (${response.status}) ${txt.slice(0, 120)}`);
-    }
-    const data = await response.json();
-    const resolvedAddress = buildResolvedAddress(data.PropertyAddress || {});
-    state.currentCall = {
-      ...state.currentCall,
-      clientAddress: resolvedAddress || state.currentCall.clientAddress || address,
-      sqft: data["Area(sqft)"] != null ? formatMaybeNumber(data["Area(sqft)"]) : "",
-      beds: data.Bedrooms != null ? formatMaybeNumber(data.Bedrooms) : "",
-      baths: data.Bathrooms != null ? formatMaybeNumber(data.Bathrooms) : "",
-    };
-    saveCurrentCallContext();
-    state.inlineLookup = { loading: false, error: "" };
-    render();
-  } catch (error) {
-    console.error(error);
-    state.inlineLookup = { loading: false, error: error.message || "Could not look up property." };
-    render();
-    notify(error.message || "Could not look up property.", "error");
-  }
 }
 
 function buildQuoteWorkspaceUrl() {
@@ -305,6 +372,8 @@ function personalizeText(value = "") {
     "{{beds}}": call.beds || "",
     "{{baths}}": call.baths || "",
     "{{service_type}}": call.serviceType || "",
+    "{{service_intent}}": call.serviceIntent || "",
+    "{{cleaning_path}}": call.cleaningPath || "",
     "{{dirt_level}}": call.dirtLevel || "",
     "{{one_time_price}}": call.oneTimePrice || "",
     "{{weekly_price}}": call.weeklyPrice || "",
@@ -391,6 +460,7 @@ function normalizeStep(step, index) {
     title: step.title || "Untitled Step",
     subtitle: typeof step.subtitle === "string" ? step.subtitle : "",
     script: typeof step.script === "string" ? step.script : "",
+    scriptBlocks: Array.isArray(step.scriptBlocks) ? step.scriptBlocks : [],
     toneCue: typeof step.toneCue === "string" ? step.toneCue : "",
     keyPoints: Array.isArray(step.keyPoints) ? step.keyPoints : [],
     branches: Array.isArray(step.branches) ? step.branches : [],
@@ -1030,7 +1100,131 @@ function getContextSections(step) {
 }
 
 function renderStepContextAssist(step) {
-  return "";
+  const call = state.currentCall || blankCurrentCall();
+  const { showContact, showProperty, showQuote } = getContextSections(step);
+  const blocks = [];
+
+  if (showContact) {
+    blocks.push(`
+      <div class="context-card">
+        <div class="context-card-head">
+          <div>
+            <div class="context-title">Capture client info</div>
+            <div class="helper-text">Fill this in as you ask it.</div>
+          </div>
+        </div>
+        <div class="context-grid three">
+          <label>
+            <span>Name</span>
+            <input value="${escapeHtml(call.clientName || "")}" data-role="current-call-field" data-field="clientName" placeholder="Jane Smith" />
+          </label>
+          <label>
+            <span>Email</span>
+            <input value="${escapeHtml(call.clientEmail || "")}" data-role="current-call-field" data-field="clientEmail" placeholder="jane@email.com" />
+          </label>
+          <label>
+            <span>Phone</span>
+            <input type="tel" inputmode="tel" autocomplete="tel" maxlength="14" value="${escapeHtml(call.clientPhone || "")}" data-role="current-call-field" data-field="clientPhone" placeholder="(727) 555-0199" />
+          </label>
+        </div>
+      </div>
+    `);
+  }
+
+  if (showProperty) {
+    blocks.push(`
+      <div class="context-card">
+        <div class="context-card-head">
+          <div>
+            <div class="context-title">Property + path</div>
+            <div class="helper-text">Use this while you verify the home and route the cleaning type.</div>
+          </div>
+          <div class="inline-actions">
+            <button class="small-btn" data-action="open-quote-modal">Quote tool</button>
+            <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
+          </div>
+        </div>
+        <div class="context-grid property-grid">
+          <label class="span-2">
+            <span>Address</span>
+            <input value="${escapeHtml(call.clientAddress || "")}" data-role="current-call-field" data-field="clientAddress" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" />
+          </label>
+          <label>
+            <span>Service type</span>
+            <input value="${escapeHtml(call.serviceType || "")}" data-role="current-call-field" data-field="serviceType" placeholder="Deep / Move-Out / Post-Construction / Maintenance" />
+          </label>
+          <label>
+            <span>Dirt level</span>
+            <input value="${escapeHtml(call.dirtLevel || "")}" data-role="current-call-field" data-field="dirtLevel" placeholder="1-10" />
+          </label>
+          <label>
+            <span>Sqft</span>
+            <input value="${escapeHtml(call.sqft || "")}" data-role="current-call-field" data-field="sqft" placeholder="1700" />
+          </label>
+          <label>
+            <span>Beds</span>
+            <input value="${escapeHtml(call.beds || "")}" data-role="current-call-field" data-field="beds" placeholder="3" />
+          </label>
+          <label>
+            <span>Baths</span>
+            <input value="${escapeHtml(call.baths || "")}" data-role="current-call-field" data-field="baths" placeholder="2" />
+          </label>
+        </div>
+      </div>
+    `);
+  }
+
+  if (showQuote) {
+    const facts = [
+      call.oneTimePrice ? `One-time ${call.oneTimePrice}` : null,
+      call.weeklyPrice ? `Weekly ${call.weeklyPrice}` : null,
+      call.biweeklyPrice ? `Biweekly ${call.biweeklyPrice}` : null,
+      call.monthlyPrice ? `Monthly ${call.monthlyPrice}` : null,
+      call.addOnSummary ? `Add-ons: ${call.addOnSummary}` : null,
+    ].filter(Boolean);
+
+    blocks.push(`
+      <div class="context-card compact">
+        <div class="context-card-head">
+          <div>
+            <div class="context-title">Quote context</div>
+            <div class="helper-text">${call.quoteUpdatedAt ? `Last updated ${escapeHtml(call.quoteUpdatedAt)}` : "Open the quote tool when you need pricing."}</div>
+          </div>
+          <div class="inline-actions">
+            <button class="small-btn" data-action="open-quote-modal">Quote tool</button>
+            <button class="ghost-btn" data-action="pull-quote-context">Apply latest quote</button>
+            <button class="warning-btn" data-action="clear-current-call">Clear call</button>
+          </div>
+        </div>
+        <div class="context-grid quote-grid">
+          <label>
+            <span>One-time</span>
+            <input value="${escapeHtml(call.oneTimePrice || "")}" data-role="current-call-field" data-field="oneTimePrice" placeholder="$0" />
+          </label>
+          <label>
+            <span>Weekly</span>
+            <input value="${escapeHtml(call.weeklyPrice || "")}" data-role="current-call-field" data-field="weeklyPrice" placeholder="$0" />
+          </label>
+          <label>
+            <span>Biweekly</span>
+            <input value="${escapeHtml(call.biweeklyPrice || "")}" data-role="current-call-field" data-field="biweeklyPrice" placeholder="$0" />
+          </label>
+          <label>
+            <span>Monthly</span>
+            <input value="${escapeHtml(call.monthlyPrice || "")}" data-role="current-call-field" data-field="monthlyPrice" placeholder="$0" />
+          </label>
+          <label class="span-2">
+            <span>Add-on summary</span>
+            <input value="${escapeHtml(call.addOnSummary || "")}" data-role="current-call-field" data-field="addOnSummary" placeholder="Windows x 8 • Fridge x 1" />
+          </label>
+        </div>
+        ${facts.length ? `<div class="token-list">${facts.map((item) => `<span class="quote-fact">${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+      </div>
+    `);
+  }
+
+  if (!blocks.length) return "";
+  return `<div class="context-stack">${blocks.join("")}</div>`;
 }
 
 function renderQuoteModal() {
@@ -1079,7 +1273,7 @@ function renderSettingsPanel() {
         <button class="ghost-btn" data-action="toggle-settings">Close</button>
         <button class="warning-btn" data-action="sign-out">Sign out</button>
       </div>
-      <div class="helper-text" style="margin-top:10px;">These settings are saved per logged-in user. Scripts can use {{rep_name}}, {{rep_first_name}}, {{client_first_name}}, {{client_name}}, {{client_email}}, {{client_phone}}, {{client_address}}, {{sqft}}, {{beds}}, {{baths}}, {{service_type}}, {{one_time_price}}, {{weekly_price}}, {{biweekly_price}}, and {{monthly_price}}.</div>
+      <div class="helper-text" style="margin-top:10px;">These settings are saved per logged-in user. Scripts can use {{rep_name}}, {{rep_first_name}}, {{client_first_name}}, {{client_name}}, {{client_email}}, {{client_phone}}, {{client_address}}, {{service_intent}}, {{cleaning_path}}, {{sqft}}, {{beds}}, {{baths}}, {{service_type}}, {{dirt_level}}, {{one_time_price}}, {{weekly_price}}, {{biweekly_price}}, {{monthly_price}}, and {{add_on_summary}}.</div>
     </div>
   `;
 }
@@ -1147,61 +1341,78 @@ function renderEditableStepText(step) {
   return `<textarea data-role="step-field" data-field="subtitle">${escapeHtml(step.subtitle || "")}</textarea>`;
 }
 
-function renderInlineField(field, options = {}) {
-  const call = state.currentCall || blankCurrentCall();
-  const value = call[field] || "";
-  const type = options.type || "text";
-  const placeholder = options.placeholder || "";
-  const extraAttrs = [];
-  if (type === "tel") extraAttrs.push('inputmode="tel" autocomplete="tel" maxlength="14"');
-  if (type === "email") extraAttrs.push('inputmode="email" autocomplete="email"');
+function renderScriptBlocks(step) {
+  const blocks = Array.isArray(step.scriptBlocks) ? step.scriptBlocks : [];
+  if (!blocks.length) return "";
+  const rendered = blocks.map((block) => {
+    if (!block || typeof block !== "object") return "";
+    const type = String(block.type || "text").toLowerCase();
+    if (!shouldShowBlock(block)) return "";
+
+    if (type === "text") {
+      return `<div class="script-line">${renderText(block.text || "")}</div>`;
+    }
+    if (type === "dynamic_text") {
+      return `<div class="script-line script-line-dynamic">${renderText(block.text || "")}</div>`;
+    }
+    if (type === "field") {
+      const key = normalizeCallFieldKey(block.field || "");
+      const value = getCurrentCallValue(key);
+      const input = String(block.input || "text").toLowerCase();
+      const label = block.label || formatCallFieldDisplay(key);
+      const placeholder = block.placeholder || defaultPlaceholderForField(key);
+      if (input === "select") {
+        const options = Array.isArray(block.options) ? block.options : [];
+        return `
+          <div class="script-inline-card">
+            <label class="script-inline-label">${escapeHtml(label)}</label>
+            <select data-role="current-call-field" data-field="${escapeHtml(key)}" class="script-inline-input">
+              <option value="">Select…</option>
+              ${options.map((option) => {
+                const optionValue = typeof option === "string" ? option : (option.value || "");
+                const optionLabel = typeof option === "string" ? option : (option.label || option.value || "");
+                return `<option value="${escapeHtml(optionValue)}" ${String(optionValue) === String(value) ? "selected" : ""}>${escapeHtml(optionLabel)}</option>`;
+              }).join("")}
+            </select>
+          </div>
+        `;
+      }
+      const typeAttr = fieldInputType(input);
+      const extraAttrs = [];
+      if (typeAttr === "tel") extraAttrs.push('inputmode="tel" autocomplete="tel" maxlength="14"');
+      if (input === "address") extraAttrs.push('autocomplete="street-address"');
+      if (typeAttr === "number") extraAttrs.push('inputmode="numeric"');
+      if (block.lookup) extraAttrs.push('data-lookup="zillow"');
+      return `
+        <div class="script-inline-card">
+          <label class="script-inline-label">${escapeHtml(label)}</label>
+          <input type="${escapeHtml(typeAttr)}" ${extraAttrs.join(" ")} value="${escapeHtml(value || "")}" data-role="current-call-field" data-field="${escapeHtml(key)}" class="script-inline-input" placeholder="${escapeHtml(placeholder)}" />
+        </div>
+      `;
+    }
+    if (type === "action_row") {
+      const actions = Array.isArray(block.actions) ? block.actions : [];
+      if (!actions.length) return "";
+      return `
+        <div class="inline-actions script-inline-actions">
+          ${actions.map((action) => {
+            const dataAction = actionNameToDataAction(action.action || "");
+            const tone = action.tone || (dataAction === "open-quote-modal" ? "small" : dataAction === "lookup-zillow" ? "small" : "ghost");
+            const cssClass = tone === "ghost" ? "ghost-btn" : tone === "warning" ? "warning-btn" : tone === "primary" ? "primary-btn" : "small-btn";
+            return `<button type="button" class="${cssClass}" data-action="${escapeHtml(dataAction)}">${escapeHtml(action.label || dataAction)}</button>`;
+          }).join("")}
+        </div>
+      `;
+    }
+    return "";
+  }).join("");
+
+  if (!rendered) return "";
   return `
-    <div class="inline-answer-block">
-      <input type="${type}" ${extraAttrs.join(" ")} value="${escapeHtml(value)}" data-role="current-call-field" data-field="${escapeHtml(field)}" placeholder="${escapeHtml(placeholder)}" />
-    </div>
-  `;
-}
-
-function renderAddressLookupBlock() {
-  const call = state.currentCall || blankCurrentCall();
-  return `
-    <div class="inline-answer-block inline-address-block">
-      <input value="${escapeHtml(call.clientAddress || "")}" data-role="current-call-field" data-field="clientAddress" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" />
-      <div class="inline-row-actions">
-        <button class="small-btn" data-action="lookup-zillow-inline">Lookup Zillow</button>
-        <button class="ghost-btn" data-action="open-quote-modal">Quote tool</button>
-      </div>
-      ${state.inlineLookup.loading ? `<div class="inline-feedback">Looking up property…</div>` : ""}
-      ${state.inlineLookup.error ? `<div class="inline-feedback error">${escapeHtml(state.inlineLookup.error)}</div>` : ""}
-    </div>
-  `;
-}
-
-function renderScriptLineWithFields(line = "") {
-  const trimmed = String(line || "").trim();
-  if (!trimmed) return `<div class="script-gap"></div>`;
-  const isPropertyConfirmation = matchesScriptPrompt(trimmed, ["i’m seeing about [x] square feet", "i'm seeing about [x] square feet"]);
-  const displayLine = isPropertyConfirmation && (state.currentCall?.sqft || state.currentCall?.beds || state.currentCall?.baths)
-    ? buildPropertyConfirmationLine()
-    : personalizeText(trimmed);
-
-  let attachment = "";
-  if (matchesScriptPrompt(trimmed, ["first and last name"])) {
-    attachment = renderInlineField("clientName", { placeholder: "Jane Smith" });
-  } else if (matchesScriptPrompt(trimmed, ["best email to send", "best email"])) {
-    attachment = renderInlineField("clientEmail", { type: "email", placeholder: "jane@email.com" });
-  } else if (matchesScriptPrompt(trimmed, ["best number to reach", "best phone number", "best number"])) {
-    attachment = renderInlineField("clientPhone", { type: "tel", placeholder: "(727) 555-0199" });
-  } else if (matchesScriptPrompt(trimmed, ["property address"])) {
-    attachment = renderAddressLookupBlock();
-  } else if (matchesScriptPrompt(trimmed, ["scale from 1 to 10", "how would you rate the home"])) {
-    attachment = renderInlineField("dirtLevel", { placeholder: "1-10" });
-  }
-
-  return `
-    <div class="script-line-block">
-      <div class="script-line">${renderInlineText(displayLine)}</div>
-      ${attachment}
+    <div class="script-card script-card-blocks">
+      <span class="script-label">Script</span>
+      ${state.editMode ? '<div class="helper-text" style="margin-bottom:14px; color: rgba(255,255,255,0.8);">This step uses structured script blocks. Edit those through txt import/export for now.</div>' : ""}
+      <div class="script-block-stack">${rendered}</div>
     </div>
   `;
 }
@@ -1211,9 +1422,9 @@ function renderScript(step) {
     return `
       <div class="page-section">
         ${step.guarantees.map((item, index) => `
-          <div class="timeline-card">
+          <div class="guarantee-card">
             ${state.editMode ? `
-              <div class="timeline-row">
+              <div class="guarantee-row">
                 <input value="${escapeHtml(item.name || "")}" data-role="guarantee-field" data-index="${index}" data-field="name" />
                 <textarea data-role="guarantee-field" data-index="${index}" data-field="script">${escapeHtml(item.script || "")}</textarea>
                 <button class="warning-btn" data-action="remove-guarantee" data-index="${index}">×</button>
@@ -1251,12 +1462,16 @@ function renderScript(step) {
     `;
   }
 
+  if (Array.isArray(step.scriptBlocks) && step.scriptBlocks.length) {
+    return renderScriptBlocks(step);
+  }
+
   return `
     <div class="script-card">
       <span class="script-label">Script</span>
       ${state.editMode
         ? `<textarea data-role="step-field" data-field="script">${escapeHtml(step.script || "")}</textarea>`
-        : `<div class="script-text script-lines">${String(step.script || "").split("\n").map((line) => renderScriptLineWithFields(line)).join("")}</div>`}
+        : `<div class="script-text">${renderText(step.script || "")}</div>`}
     </div>
   `;
 }
@@ -1492,7 +1707,7 @@ function flowScreen() {
           <div class="flow-heading">${escapeHtml(flow.name)}</div>
           ${parent ? `<div class="parent-row"><div>Branch from ${escapeHtml(parent.title)}</div><button class="small-btn" data-action="go-step" data-step-id="${escapeHtml(parent.id)}">Back to parent</button></div>` : ""}
           <div class="ribbon">${renderEditableStepText(step)}</div>
-          ${renderStepContextAssist(step)}
+          ${Array.isArray(step.scriptBlocks) && step.scriptBlocks.length ? "" : renderStepContextAssist(step)}
           ${renderScript(step)}
           ${!step.special ? renderActionRow(step, flow) : ""}
           ${renderKeyPoints(step)}
@@ -1628,8 +1843,8 @@ function onClick(event) {
     pullQuoteContextFromStorage();
     return;
   }
-  if (action === "lookup-zillow-inline") {
-    lookupAddressInline();
+  if (action === "lookup-zillow") {
+    lookupZillowForCurrentAddress();
     return;
   }
   if (action === "copy-call-summary") {
@@ -1693,13 +1908,13 @@ function onInput(event) {
   }
 
   if (target.dataset.role === "current-call-field") {
-    const field = target.dataset.field;
+    const field = normalizeCallFieldKey(target.dataset.field);
     if (field === "clientPhone") {
       const formatted = formatUsPhoneInput(target.value);
       target.value = formatted;
-      state.currentCall[field] = formatted;
+      setCurrentCallValue(field, formatted);
     } else {
-      state.currentCall[field] = target.value;
+      setCurrentCallValue(field, target.value);
     }
     saveCurrentCallContext();
     return;
@@ -1809,8 +2024,8 @@ function onChange(event) {
   }
   if (target.dataset.role === "current-call-field") {
     saveCurrentCallContext();
-    if (target.dataset.field === "clientAddress" && target.value.trim()) {
-      lookupAddressInline();
+    if (target.dataset.lookup === "zillow" && normalizeCallFieldKey(target.dataset.field) === "clientAddress") {
+      lookupZillowForCurrentAddress({ silent: true });
       return;
     }
     render();
@@ -1840,6 +2055,22 @@ async function onSubmit(event) {
 }
 
 root.addEventListener("click", onClick);
+
+root.addEventListener("focusout", (event) => {
+  const target = event.target;
+  if (target?.dataset?.role === "current-call-field" && target.dataset.lookup === "zillow" && normalizeCallFieldKey(target.dataset.field) === "clientAddress") {
+    lookupZillowForCurrentAddress({ silent: true });
+  }
+}, true);
+
+root.addEventListener("keydown", (event) => {
+  const target = event.target;
+  if (event.key === "Enter" && target?.dataset?.role === "current-call-field" && target.dataset.lookup === "zillow" && normalizeCallFieldKey(target.dataset.field) === "clientAddress") {
+    event.preventDefault();
+    lookupZillowForCurrentAddress();
+  }
+}, true);
+
 
 document.addEventListener("click", (event) => {
   const modalApply = event.target.closest('#quoteModalApplyBtn');

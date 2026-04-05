@@ -1,0 +1,96 @@
+Script Blocks Schema v1
+
+Purpose
+- Replace fragile phrase-detection with structured, txt-driven script rendering.
+- Keep old plain `script:` steps working.
+- Allow AI or humans to place fields, buttons, and dynamic lines exactly where they belong.
+
+Step-level rule
+- A step may still use `script: |` as a plain text blob.
+- If a step includes `script_blocks:`, the app will render those blocks instead of the plain `script` text.
+- `script_blocks` are ordered and render top to bottom.
+
+Supported block types
+
+1) text
+- Renders normal script text.
+Fields:
+  - type: text
+  - text: |
+      Your script line here.
+
+2) field
+- Renders an input directly under the surrounding script text.
+Fields:
+  - type: field
+  - field: client_name | client_email | client_phone | client_address | sqft | beds | baths | service_type | dirt_level | one_time_price | weekly_price | biweekly_price | monthly_price | add_on_summary | service_intent | cleaning_path
+  - input: text | email | tel | address | number | select
+  - label: optional label shown above the input
+  - placeholder: optional placeholder text
+  - lookup: true  (only useful on client_address right now; triggers Zillow lookup on blur/change/Enter)
+  - options:      (only used when input: select)
+      - value: one_time
+        label: One-time
+      - value: recurring
+        label: Recurring
+
+3) action_row
+- Renders one or more buttons directly in the script flow.
+Fields:
+  - type: action_row
+  - actions:
+      - action: lookup_zillow
+        label: Lookup Zillow
+      - action: open_quote_tool
+        label: Quote tool
+      - action: apply_latest_quote
+        label: Apply latest quote
+      - action: clear_current_call
+        label: Clear call
+      - tone: small | ghost | primary | warning   (optional)
+
+4) dynamic_text
+- Renders a line that uses live variables and only appears when conditions are met.
+Fields:
+  - type: dynamic_text
+  - text: |
+      I’m seeing about {{sqft}} square feet, {{beds}} bedrooms, and {{baths}} bathrooms — does that sound right?
+  - show_when_any:
+      - sqft
+      - beds
+      - baths
+  - show_when_all: optional stricter condition list
+
+Variable tokens
+- {{rep_name}}
+- {{rep_first_name}}
+- {{client_name}}
+- {{client_first_name}}
+- {{client_email}}
+- {{client_phone}}
+- {{client_address}}
+- {{service_intent}}
+- {{cleaning_path}}
+- {{sqft}}
+- {{beds}}
+- {{baths}}
+- {{service_type}}
+- {{dirt_level}}
+- {{one_time_price}}
+- {{weekly_price}}
+- {{biweekly_price}}
+- {{monthly_price}}
+- {{add_on_summary}}
+
+Recommended authoring pattern
+- Put the spoken question in a `text` block.
+- Put the answer input in a `field` block immediately after it.
+- Put helper buttons in an `action_row` block immediately after the field.
+- Put any auto-filled confirmation line in a `dynamic_text` block after that.
+
+Editing rules for AI
+- Keep ids stable.
+- Do not rename fields unless the app has been updated to support them.
+- Prefer snake_case field names in txt.
+- Use `script_blocks` only when placement matters.
+- Use plain `script` for simple content with no inline capture or actions.

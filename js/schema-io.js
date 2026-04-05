@@ -69,6 +69,40 @@ function writeFollowUp(lines, indent, item) {
   writeBlockString(lines, indent + 2, "content", item.content || "");
 }
 
+
+function writeScriptAction(lines, indent, action) {
+  pushLine(lines, indent, `- action: ${quoteString(action.action || "")}`);
+  pushLine(lines, indent + 2, `label: ${quoteString(action.label || "")}`);
+  if (action.tone) pushLine(lines, indent + 2, `tone: ${quoteString(action.tone)}`);
+}
+
+function writeScriptOption(lines, indent, option) {
+  if (typeof option === "string") {
+    pushLine(lines, indent, `- ${quoteString(option)}`);
+    return;
+  }
+  pushLine(lines, indent, `- value: ${quoteString(option.value || "")}`);
+  pushLine(lines, indent + 2, `label: ${quoteString(option.label || option.value || "")}`);
+}
+
+function writeScriptBlock(lines, indent, block) {
+  pushLine(lines, indent, `- type: ${quoteString(block.type || "text")}`);
+  if (block.text != null) writeBlockString(lines, indent + 2, "text", block.text || "");
+  if (block.field != null) pushLine(lines, indent + 2, `field: ${quoteString(block.field || "")}`);
+  if (block.input != null) pushLine(lines, indent + 2, `input: ${quoteString(block.input || "text")}`);
+  if (block.label != null) pushLine(lines, indent + 2, `label: ${quoteString(block.label || "")}`);
+  if (block.placeholder != null) pushLine(lines, indent + 2, `placeholder: ${quoteString(block.placeholder || "")}`);
+  if (block.lookup === true) pushLine(lines, indent + 2, `lookup: true`);
+  if (Array.isArray(block.showWhenAny)) writeStringArray(lines, indent + 2, "show_when_any", block.showWhenAny);
+  if (Array.isArray(block.showWhenAll)) writeStringArray(lines, indent + 2, "show_when_all", block.showWhenAll);
+  if (Array.isArray(block.actions)) writeObjectArray(lines, indent + 2, "actions", block.actions, writeScriptAction);
+  if (Array.isArray(block.options)) {
+    pushLine(lines, indent + 2, "options:");
+    if (!block.options.length) pushLine(lines, indent + 4, "[]");
+    else for (const option of block.options) writeScriptOption(lines, indent + 4, option);
+  }
+}
+
 function writeStep(lines, indent, step) {
   const kind = step.special ? "special" : (step.main ? "main" : "branch");
   pushLine(lines, indent, `- id: ${quoteString(step.id)}`);
@@ -79,6 +113,9 @@ function writeStep(lines, indent, step) {
   pushLine(lines, indent + 2, `title: ${quoteString(step.title || "")}`);
   writeBlockString(lines, indent + 2, "legend", step.subtitle || "");
   writeBlockString(lines, indent + 2, "script", step.script || "");
+  if (Array.isArray(step.scriptBlocks) && step.scriptBlocks.length) {
+    writeObjectArray(lines, indent + 2, "script_blocks", step.scriptBlocks, writeScriptBlock);
+  }
   writeBlockString(lines, indent + 2, "tone_cue", step.toneCue || "");
   writeScalar(lines, indent + 2, "parent_step_id", step.parentId || "");
   writeScalar(lines, indent + 2, "next_step_id", step.next || "");
@@ -310,6 +347,28 @@ function normalizeImportedStep(step, index) {
     title: safeString(step.title || step.sidebar_label || `Step ${index + 1}`),
     subtitle: safeString(step.legend || step.subtitle || ""),
     script: safeString(step.script || ""),
+    scriptBlocks: Array.isArray(step.script_blocks || step.scriptBlocks) ? (step.script_blocks || step.scriptBlocks).map((block, blockIndex) => ({
+      type: safeString(block.type || "text") || "text",
+      text: safeString(block.text || ""),
+      field: safeString(block.field || ""),
+      input: safeString(block.input || "text") || "text",
+      label: safeString(block.label || ""),
+      placeholder: safeString(block.placeholder || ""),
+      lookup: Boolean(block.lookup),
+      showWhenAny: Array.isArray(block.show_when_any || block.showWhenAny) ? (block.show_when_any || block.showWhenAny).map((item) => safeString(item)) : [],
+      showWhenAll: Array.isArray(block.show_when_all || block.showWhenAll) ? (block.show_when_all || block.showWhenAll).map((item) => safeString(item)) : [],
+      actions: Array.isArray(block.actions) ? block.actions.map((action) => ({
+        action: safeString(action.action || ""),
+        label: safeString(action.label || ""),
+        tone: safeString(action.tone || ""),
+      })) : [],
+      options: Array.isArray(block.options) ? block.options.map((option) => (
+        typeof option === "string"
+          ? { value: safeString(option), label: safeString(option) }
+          : { value: safeString(option.value || ""), label: safeString(option.label || option.value || "") }
+      )) : [],
+      order: Number.isFinite(block.order) ? Number(block.order) : blockIndex,
+    })) : [],
     toneCue: safeString(step.tone_cue || step.toneCue || ""),
     keyPoints: Array.isArray(step.key_points || step.keyPoints) ? (step.key_points || step.keyPoints).map((item) => safeString(item)) : [],
     branches: Array.isArray(step.branches) ? step.branches.map((branch) => ({
@@ -403,6 +462,14 @@ export function validateWorkspaceSchema(workspace) {
       if (!step.id) issues.push(`A step in ${flow.id} is missing an id.`);
       if (stepIds.has(step.id)) issues.push(`Duplicate step id ${step.id} in ${flow.id}.`);
       stepIds.add(step.id);
+      for (const block of step.scriptBlocks || []) {
+        if (block.type === "field" && !block.field) issues.push(`A field block in ${flow.id}/${step.id} is missing a field binding.`);
+        if (block.type === "action_row") {
+          for (const action of block.actions || []) {
+            if (!action.action) issues.push(`An action in ${flow.id}/${step.id} is missing an action name.`);
+          }
+        }
+      }
     }
     for (const step of flow.steps || []) {
       if (step.parentId && !stepIds.has(step.parentId)) issues.push(`Step ${step.id} in ${flow.id} points to missing parent_step_id ${step.parentId}.`);

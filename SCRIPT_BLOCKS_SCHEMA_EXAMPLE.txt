@@ -1,0 +1,116 @@
+schema_version: 1
+workspace:
+  theme: light
+  rep_name: Andre
+  groups:
+    - id: inbound
+      name: Inbound
+      icon: "📥"
+  call_types:
+    - id: inbound_new_inquiry
+      name: New Inquiry
+      icon: "📞"
+      description: |
+        Example showing structured script blocks.
+      group_id: inbound
+      steps:
+        - id: inbound_new_inquiry_s02
+          kind: main
+          special_type: standard
+          step_number: "02"
+          sidebar_label: "Info"
+          title: "Contact Info + Timing"
+          legend: |
+            Ask for the basics before going too deep.
+          script: |
+            
+          script_blocks:
+            - type: text
+              text: |
+                Can I get your first and last name?
+            - type: field
+              field: client_name
+              input: text
+              label: Full name
+              placeholder: Jane Smith
+            - type: text
+              text: |
+                What’s the best email to send everything to?
+            - type: field
+              field: client_email
+              input: email
+              label: Email
+              placeholder: jane@email.com
+            - type: text
+              text: |
+                And is this the best number to reach you?
+            - type: field
+              field: client_phone
+              input: tel
+              label: Phone
+              placeholder: (727) 555-0199
+          tone_cue: |
+            Quick and natural.
+          parent_step_id: ""
+          next_step_id: inbound_new_inquiry_s04
+          key_points:
+            - Capture name, email, and phone.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
+
+        - id: inbound_new_inquiry_s04
+          kind: main
+          special_type: standard
+          step_number: "04"
+          sidebar_label: "Path"
+          title: "Service Path + Property Details"
+          legend: |
+            Get the address, run the lookup, and confirm the property.
+          script: |
+            
+          script_blocks:
+            - type: text
+              text: |
+                What’s the property address?
+            - type: field
+              field: client_address
+              input: address
+              label: Property address
+              placeholder: 833 Marco Dr NE, St Petersburg, FL 33702
+              lookup: true
+            - type: action_row
+              actions:
+                - action: lookup_zillow
+                  label: Lookup Zillow
+                  tone: small
+                - action: open_quote_tool
+                  label: Quote tool
+                  tone: small
+            - type: dynamic_text
+              text: |
+                I’m seeing about {{sqft}} square feet, {{beds}} bedrooms, and {{baths}} bathrooms — does that sound right?
+              show_when_any:
+                - sqft
+                - beds
+                - baths
+          tone_cue: |
+            Diagnostic and confident.
+          parent_step_id: ""
+          next_step_id: ""
+          key_points:
+            - Ask for the address early.
+            - Use the lookup to confirm the property.
+          branches:
+            []
+          extra:
+            null
+          guarantees:
+            []
+          follow_up:
+            []
