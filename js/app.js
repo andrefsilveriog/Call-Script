@@ -143,8 +143,17 @@ function formatCallFieldDisplay(field = "") {
 function shouldShowBlock(block) {
   const any = Array.isArray(block.showWhenAny) ? block.showWhenAny : [];
   const all = Array.isArray(block.showWhenAll) ? block.showWhenAll : [];
+  const equals = block && typeof block.showWhenEquals === "object" && !Array.isArray(block.showWhenEquals) ? block.showWhenEquals : null;
   if (all.length && !all.every((item) => String(getCurrentCallValue(item) || "").trim())) return false;
   if (any.length && !any.some((item) => String(getCurrentCallValue(item) || "").trim())) return false;
+  if (equals) {
+    for (const [field, expected] of Object.entries(equals)) {
+      const actual = String(getCurrentCallValue(field) || "").trim().toLowerCase();
+      const allowed = Array.isArray(expected) ? expected : [expected];
+      const normalized = allowed.map((item) => String(item || "").trim().toLowerCase());
+      if (!normalized.includes(actual)) return false;
+    }
+  }
   return true;
 }
 
@@ -163,6 +172,7 @@ function actionNameToDataAction(action = "") {
 function fieldInputType(input = "text") {
   const value = String(input || "text").toLowerCase();
   if (["text", "email", "tel", "number"].includes(value)) return value;
+  if (value === "phone") return "tel";
   if (value === "address") return "text";
   return "text";
 }
@@ -178,9 +188,11 @@ function defaultPlaceholderForField(field = "") {
     beds: "3",
     baths: "2",
     dirtLevel: "1-10",
-    serviceType: "Deep / Move-Out / Post-Construction / Maintenance",
+    serviceType: "Deep / Initial / Move-Out / Post-Construction / Maintenance",
     serviceIntent: "One-time or recurring",
-    cleaningPath: "Deep / Move-Out / Post-Construction / Maintenance",
+    cleaningPath: "Deep / Initial / Move-Out / Post-Construction / Maintenance",
+    needBy: "This week / before guests / move-out date",
+    scheduleSlot: "Tue 9am / Thu afternoon",
     oneTimePrice: "$0",
     weeklyPrice: "$0",
     biweeklyPrice: "$0",
@@ -385,6 +397,15 @@ function personalizeText(value = "") {
   for (const [token, replacement] of Object.entries(replacements)) {
     output = output.replaceAll(token, replacement);
   }
+  output = output.replace(/\{\{\s*([a-zA-Z0-9_-]+)\s*\}\}/g, (match, rawKey) => {
+    const normalized = normalizeCallFieldKey(rawKey);
+    const direct = state.currentCall?.[normalized];
+    if (direct != null && direct !== "") return String(direct);
+    const camel = rawKey.replace(/[-_](.)/g, (_, ch) => ch.toUpperCase());
+    const raw = state.currentCall?.[camel] ?? state.currentCall?.[rawKey];
+    if (raw != null && raw !== "") return String(raw);
+    return match;
+  });
   return output;
 }
 
@@ -1353,7 +1374,9 @@ function renderScriptBlocks(step) {
       return `<div class="script-line">${renderText(block.text || "")}</div>`;
     }
     if (type === "dynamic_text") {
-      return `<div class="script-line script-line-dynamic">${renderText(block.text || "")}</div>`;
+      const dynamicHtml = renderResolvedDynamicText(block.text || "");
+      if (!dynamicHtml) return "";
+      return `<div class="script-line script-line-dynamic">${dynamicHtml}</div>`;
     }
     if (type === "field") {
       const key = normalizeCallFieldKey(block.field || "");
@@ -1411,7 +1434,6 @@ function renderScriptBlocks(step) {
   return `
     <div class="script-card script-card-blocks">
       <span class="script-label">Script</span>
-      ${state.editMode ? '<div class="helper-text" style="margin-bottom:14px; color: rgba(255,255,255,0.8);">This step uses structured script blocks. Edit those through txt import/export for now.</div>' : ""}
       <div class="script-block-stack">${rendered}</div>
     </div>
   `;
@@ -1707,7 +1729,6 @@ function flowScreen() {
           <div class="flow-heading">${escapeHtml(flow.name)}</div>
           ${parent ? `<div class="parent-row"><div>Branch from ${escapeHtml(parent.title)}</div><button class="small-btn" data-action="go-step" data-step-id="${escapeHtml(parent.id)}">Back to parent</button></div>` : ""}
           <div class="ribbon">${renderEditableStepText(step)}</div>
-          ${Array.isArray(step.scriptBlocks) && step.scriptBlocks.length ? "" : renderStepContextAssist(step)}
           ${renderScript(step)}
           ${!step.special ? renderActionRow(step, flow) : ""}
           ${renderKeyPoints(step)}

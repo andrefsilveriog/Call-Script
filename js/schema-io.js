@@ -95,6 +95,18 @@ function writeScriptBlock(lines, indent, block) {
   if (block.lookup === true) pushLine(lines, indent + 2, `lookup: true`);
   if (Array.isArray(block.showWhenAny)) writeStringArray(lines, indent + 2, "show_when_any", block.showWhenAny);
   if (Array.isArray(block.showWhenAll)) writeStringArray(lines, indent + 2, "show_when_all", block.showWhenAll);
+  if (block.showWhenEquals && typeof block.showWhenEquals === "object" && !Array.isArray(block.showWhenEquals)) {
+    pushLine(lines, indent + 2, "show_when_equals:");
+    for (const [field, expected] of Object.entries(block.showWhenEquals)) {
+      if (Array.isArray(expected)) {
+        pushLine(lines, indent + 4, `${field}:`);
+        if (!expected.length) pushLine(lines, indent + 6, "[]");
+        else for (const item of expected) pushLine(lines, indent + 6, `- ${quoteString(item)}`);
+      } else {
+        pushLine(lines, indent + 4, `${field}: ${quoteString(expected)}`);
+      }
+    }
+  }
   if (Array.isArray(block.actions)) writeObjectArray(lines, indent + 2, "actions", block.actions, writeScriptAction);
   if (Array.isArray(block.options)) {
     pushLine(lines, indent + 2, "options:");
@@ -357,6 +369,12 @@ function normalizeImportedStep(step, index) {
       lookup: Boolean(block.lookup),
       showWhenAny: Array.isArray(block.show_when_any || block.showWhenAny) ? (block.show_when_any || block.showWhenAny).map((item) => safeString(item)) : [],
       showWhenAll: Array.isArray(block.show_when_all || block.showWhenAll) ? (block.show_when_all || block.showWhenAll).map((item) => safeString(item)) : [],
+      showWhenEquals: block.show_when_equals && typeof block.show_when_equals === "object" && !Array.isArray(block.show_when_equals)
+        ? Object.fromEntries(Object.entries(block.show_when_equals).map(([field, expected]) => [
+            safeString(field),
+            Array.isArray(expected) ? expected.map((item) => safeString(item)) : safeString(expected),
+          ]))
+        : {},
       actions: Array.isArray(block.actions) ? block.actions.map((action) => ({
         action: safeString(action.action || ""),
         label: safeString(action.label || ""),
