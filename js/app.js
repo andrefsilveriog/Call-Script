@@ -1499,22 +1499,26 @@ function renderScript(step) {
 }
 
 function renderActionRow(step, flow) {
-  const buttons = [];
-  const mainSteps = sortByOrder(flow.steps).filter((item) => item.main);
-  const currentMainIndex = mainSteps.findIndex((item) => item.id === step.id || item.id === step.parentId);
-  const hasBack = state.stepHistory.length > 0 || currentMainIndex > 0 || !!step.parentId;
+  const branches = step.branches || [];
+  const buttons = branches.map((branch, index) => {
+    const target = flow.steps.find((item) => item.id === branch.targetId);
+    if (!branch.targetId || !target) return "";
+    return `
+      <button class="branch-btn" data-action="go-step" data-step-id="${escapeHtml(branch.targetId)}" style="background:${BRANCH_TONES[branch.color] || "var(--white)"};">
+        ${escapeHtml(branch.label || "Branch")}
+      </button>
+    `;
+  }).filter(Boolean);
 
-  if (hasBack) {
-    buttons.push(`<button class="ghost-btn" data-action="go-back-step">Back</button>`);
-  }
-
-  const nextId = resolveNextStepId(step, flow);
-  if (nextId) {
-    buttons.push(`<button class="primary-btn" data-action="go-step" data-step-id="${escapeHtml(nextId)}">Next</button>`);
+  if (step.next) {
+    const next = flow.steps.find((item) => item.id === step.next);
+    if (next) {
+      buttons.push(`<button class="primary-btn" data-action="go-step" data-step-id="${escapeHtml(next.id)}">Next</button>`);
+    }
   }
 
   if (!buttons.length) return "";
-  return `<div class="action-row nav-only-row">${buttons.join("")}</div>`;
+  return `<div class="action-row">${buttons.join("")}</div>`;
 }
 
 function renderKeyPoints(step) {
