@@ -13,32 +13,65 @@ const state = {
   callContext: {},
   history: [],
   settingsOpen: false,
+  clientInfoOpen: false,
   quoteOpen: false,
   quoteDraft: null,
   quoteError: '',
-  authMode: 'signin',
+  quoteLoading: false,
   authError: '',
 };
 
+const RATE_MODES = {
+  decreasePrice: { label: 'Decrease Price', hourlyRate: 60 },
+  currentRate: { label: 'Current Rate', hourlyRate: 65 },
+  increasePrice: { label: 'Increase Price', hourlyRate: 80 },
+};
+
+const SERVICE_TYPES = {
+  DEEP: 'DEEP',
+  MOVE_IN_OUT: 'MOVE-IN/OUT',
+  POST_CONSTRUCTION: 'POST CONSTRUCTION',
+};
+
 const QUOTE_BANDS = [
-  { id: '0-700', min: 0, max: 700, deep: 4.0, move: 5.5, weekly: 2.0, biweekly: 2.25, monthly: 2.5 },
-  { id: '701-1000', min: 701, max: 1000, deep: 4.25, move: 6.0, weekly: 2.0, biweekly: 2.5, monthly: 3.0 },
-  { id: '1001-1250', min: 1001, max: 1250, deep: 4.5, move: 6.5, weekly: 2.25, biweekly: 2.75, monthly: 3.5 },
-  { id: '1251-1500', min: 1251, max: 1500, deep: 5.0, move: 7.0, weekly: 2.5, biweekly: 3.0, monthly: 3.75 },
-  { id: '1501-1750', min: 1501, max: 1750, deep: 5.5, move: 8.0, weekly: 3.0, biweekly: 3.25, monthly: 4.0 },
-  { id: '1751-2000', min: 1751, max: 2000, deep: 6.0, move: 8.5, weekly: 3.25, biweekly: 3.5, monthly: 4.5 },
-  { id: '2001-2250', min: 2001, max: 2250, deep: 6.5, move: 9.5, weekly: 3.5, biweekly: 3.75, monthly: 5.0 },
-  { id: '2251-2500', min: 2251, max: 2500, deep: 7.0, move: 10.0, weekly: 3.75, biweekly: 4.0, monthly: 5.5 },
-  { id: '2501-2750', min: 2501, max: 2750, deep: 7.5, move: 11.0, weekly: 4.0, biweekly: 4.25, monthly: 6.0 },
-  { id: '2751-3000', min: 2751, max: 3000, deep: 8.0, move: 12.0, weekly: 4.25, biweekly: 4.5, monthly: 6.5 },
-  { id: '3001-3500', min: 3001, max: 3500, deep: 9.0, move: 13.0, weekly: 5.0, biweekly: 5.75, monthly: 7.0 },
-  { id: '3501-4000', min: 3501, max: 4000, deep: 10.0, move: 15.0, weekly: 5.75, biweekly: 6.25, monthly: 8.5 },
-  { id: '4001-5000', min: 4001, max: 5000, deep: 11.0, move: 17.0, weekly: 6.5, biweekly: 7.0, monthly: 9.0 },
-  { id: '5001-6000', min: 5001, max: 6000, deep: 12.0, move: 18.0, weekly: 7.5, biweekly: 8.0, monthly: 10.0 },
-  { id: '6001-8000', min: 6001, max: 8000, deep: 13.0, move: 22.0, weekly: 7.0, biweekly: 9.5, monthly: 11.0 },
+  { id: '0-700', min: 0, max: 700, deepToHours: 4.0, moveToHours: 5.5, weeklyToHours: 2.0, biweeklyToHours: 2.25, monthlyToHours: 2.5 },
+  { id: '701-1000', min: 701, max: 1000, deepToHours: 4.25, moveToHours: 6.0, weeklyToHours: 2.0, biweeklyToHours: 2.5, monthlyToHours: 3.0 },
+  { id: '1001-1250', min: 1001, max: 1250, deepToHours: 4.5, moveToHours: 6.5, weeklyToHours: 2.25, biweeklyToHours: 2.75, monthlyToHours: 3.5 },
+  { id: '1251-1500', min: 1251, max: 1500, deepToHours: 5.0, moveToHours: 7.0, weeklyToHours: 2.5, biweeklyToHours: 3.0, monthlyToHours: 3.75 },
+  { id: '1501-1750', min: 1501, max: 1750, deepToHours: 5.5, moveToHours: 8.0, weeklyToHours: 3.0, biweeklyToHours: 3.25, monthlyToHours: 4.0 },
+  { id: '1751-2000', min: 1751, max: 2000, deepToHours: 6.0, moveToHours: 8.5, weeklyToHours: 3.25, biweeklyToHours: 3.5, monthlyToHours: 4.5 },
+  { id: '2001-2250', min: 2001, max: 2250, deepToHours: 6.5, moveToHours: 9.5, weeklyToHours: 3.5, biweeklyToHours: 3.75, monthlyToHours: 5.0 },
+  { id: '2251-2500', min: 2251, max: 2500, deepToHours: 7.0, moveToHours: 10.0, weeklyToHours: 3.75, biweeklyToHours: 4.0, monthlyToHours: 5.5 },
+  { id: '2501-2750', min: 2501, max: 2750, deepToHours: 7.5, moveToHours: 11.0, weeklyToHours: 4.0, biweeklyToHours: 4.25, monthlyToHours: 6.0 },
+  { id: '2751-3000', min: 2751, max: 3000, deepToHours: 8.0, moveToHours: 12.0, weeklyToHours: 4.25, biweeklyToHours: 4.5, monthlyToHours: 6.5 },
+  { id: '3001-3500', min: 3001, max: 3500, deepToHours: 9.0, moveToHours: 13.0, weeklyToHours: 5.0, biweeklyToHours: 5.75, monthlyToHours: 7.0 },
+  { id: '3501-4000', min: 3501, max: 4000, deepToHours: 10.0, moveToHours: 15.0, weeklyToHours: 5.75, biweeklyToHours: 6.25, monthlyToHours: 8.5 },
+  { id: '4001-5000', min: 4001, max: 5000, deepToHours: 11.0, moveToHours: 17.0, weeklyToHours: 6.5, biweeklyToHours: 7.0, monthlyToHours: 9.0 },
+  { id: '5001-6000', min: 5001, max: 6000, deepToHours: 12.0, moveToHours: 18.0, weeklyToHours: 7.5, biweeklyToHours: 8.0, monthlyToHours: 10.0 },
+  { id: '6001-8000', min: 6001, max: 8000, deepToHours: 13.0, moveToHours: 22.0, weeklyToHours: 7.0, biweeklyToHours: 9.5, monthlyToHours: 11.0 },
 ];
-const ADD_ON_RATES = { fridge: 70, oven: 60, windows: 10, pets: 30 };
-const RATE = 65;
+
+const ADD_ONS = {
+  doors: 30,
+  windows: 10,
+  laundry: 35,
+  fridge: 70,
+  oven: 60,
+  fAndS: 115,
+  laundryAndFS: 140,
+};
+
+const ADMIN_FEE_RATE = 0.03;
+const INITIAL_DISCOUNT_RATE = 0.25;
+const CANCELLATION_FEE_RATE = 0.05;
+
+const PET_SURCHARGES = {
+  1: { '0-700':0, '701-1000':0, '1001-1250':0, '1251-1500':0, '1501-1750':0, '1751-2000':0, '2001-2250':15, '2251-2500':15, '2501-2750':30, '2751-3000':30, '3001-3500':30, '3501-4000':30, '4001-5000':30, '5001-6000':30, '6001-8000':30 },
+  2: { '0-700':15, '701-1000':15, '1001-1250':20, '1251-1500':20, '1501-1750':30, '1751-2000':30, '2001-2250':30, '2251-2500':30, '2501-2750':30, '2751-3000':30, '3001-3500':30, '3501-4000':30, '4001-5000':30, '5001-6000':30, '6001-8000':30 },
+  3: { '0-700':30, '701-1000':30, '1001-1250':30, '1251-1500':30, '1501-1750':45, '1751-2000':45, '2001-2250':60, '2251-2500':60, '2501-2750':75, '2751-3000':75, '3001-3500':75, '3501-4000':75, '4001-5000':75, '5001-6000':75, '6001-8000':75 },
+  4: { '0-700':45, '701-1000':45, '1001-1250':45, '1251-1500':45, '1501-1750':60, '1751-2000':60, '2001-2250':75, '2251-2500':75, '2501-2750':75, '2751-3000':75, '3001-3500':90, '3501-4000':90, '4001-5000':90, '5001-6000':90, '6001-8000':90 },
+  5: { '0-700':60, '701-1000':60, '1001-1250':60, '1251-1500':60, '1501-1750':75, '1751-2000':75, '2001-2250':90, '2251-2500':90, '2501-2750':90, '2751-3000':90, '3001-3500':120, '3501-4000':120, '4001-5000':120, '5001-6000':120, '6001-8000':120 },
+};
 
 observeAuth(async (user) => {
   state.user = user;
@@ -59,6 +92,13 @@ function applyTheme() {
   document.body.classList.toggle('theme-dark', state.settings.theme === 'dark');
 }
 
+function safeText(value) { return value == null ? '' : String(value); }
+function firstName(value) { return String(value || '').trim().split(/\s+/)[0] || ''; }
+function money(value) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0)); }
+function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+function ceilQuarter(n) { return Math.ceil(n * 4) / 4; }
+function ceilHalf(n) { return Math.ceil(n * 2) / 2; }
+
 function deriveContext() {
   const ctx = { ...state.callContext };
   ctx.rep_name = state.settings.repName || '';
@@ -67,66 +107,60 @@ function deriveContext() {
   return ctx;
 }
 
-function firstName(value) {
-  return String(value || '').trim().split(/\s+/)[0] || '';
-}
-
-function safeText(value) {
-  return value == null ? '' : String(value);
-}
-
 function resolveTokens(text) {
   const ctx = deriveContext();
   return safeText(text).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => safeText(ctx[key]));
 }
 
-function formatPhone(value) {
-  const digits = String(value || '').replace(/\D/g, '').slice(0, 10);
-  const p1 = digits.slice(0, 3);
-  const p2 = digits.slice(3, 6);
-  const p3 = digits.slice(6, 10);
-  if (!p1) return '';
-  if (!p2) return `(${p1}`;
-  if (!p3) return `(${p1}) ${p2}`;
-  return `(${p1}) ${p2}-${p3}`;
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
+function escapeAttr(value) { return escapeHtml(value).replace(/`/g, '&#096;'); }
+function valueOf(id) { return document.getElementById(id)?.value || ''; }
 
-function getGroups() {
-  return state.workspace?.workspace?.groups || [];
+function getGroups() { return state.workspace?.workspace?.groups || []; }
+function getCallTypes() { return state.workspace?.workspace?.call_types || []; }
+function getActiveCallType() { return getCallTypes().find((ct) => ct.id === state.activeCallTypeId) || null; }
+function getActiveSteps() { return getActiveCallType()?.steps || []; }
+function getActiveStep() { return getActiveSteps().find((s) => s.id === state.activeStepId) || null; }
+
+function callContextKey() {
+  return state.user && state.activeCallTypeId ? `joc-call-context-${state.user.uid}-${state.activeCallTypeId}` : '';
 }
-
-function getCallTypes() {
-  return state.workspace?.workspace?.call_types || [];
+function persistCallContext() {
+  const key = callContextKey();
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(state.callContext));
 }
-
-function getActiveCallType() {
-  return getCallTypes().find((ct) => ct.id === state.activeCallTypeId) || null;
-}
-
-function getActiveSteps() {
-  return getActiveCallType()?.steps || [];
-}
-
-function getActiveStep() {
-  return getActiveSteps().find((s) => s.id === state.activeStepId) || null;
+function loadCallContext(callTypeId) {
+  const key = state.user ? `joc-call-context-${state.user.uid}-${callTypeId}` : '';
+  if (!key) return {};
+  try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; }
 }
 
 function startCallType(callTypeId) {
   state.activeCallTypeId = callTypeId;
-  const firstStep = getActiveCallType()?.steps?.[0];
-  state.activeStepId = firstStep?.id || null;
+  state.activeStepId = getCallTypes().find((c) => c.id === callTypeId)?.steps?.[0]?.id || null;
   state.callContext = loadCallContext(callTypeId);
   state.history = [];
+  state.clientInfoOpen = false;
+  state.quoteOpen = false;
+  state.quoteDraft = buildQuoteDraftFromContext();
   render();
 }
-
 function goHome() {
   state.activeCallTypeId = null;
   state.activeStepId = null;
   state.history = [];
+  state.clientInfoOpen = false;
+  state.quoteOpen = false;
   render();
 }
-
 function getNextStepId() {
   const step = getActiveStep();
   const steps = getActiveSteps();
@@ -139,7 +173,6 @@ function getNextStepId() {
   const idx = steps.findIndex((s) => s.id === step.id);
   return steps[idx + 1]?.id || null;
 }
-
 function goNext() {
   const nextId = getNextStepId();
   if (!nextId) return;
@@ -148,7 +181,6 @@ function goNext() {
   persistCallContext();
   render();
 }
-
 function goBack() {
   if (state.history.length) {
     state.activeStepId = state.history.pop();
@@ -163,24 +195,29 @@ function goBack() {
   }
 }
 
-function callContextKey() {
-  return state.user && state.activeCallTypeId ? `joc-call-context-${state.user.uid}-${state.activeCallTypeId}` : '';
+function normalizeFieldValue(field, value) {
+  if (field === 'client_phone') return formatPhone(value);
+  return value;
 }
-
-function persistCallContext() {
-  const key = callContextKey();
-  if (!key) return;
-  localStorage.setItem(key, JSON.stringify(state.callContext));
+function formatPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 10);
+  const p1 = digits.slice(0, 3);
+  const p2 = digits.slice(3, 6);
+  const p3 = digits.slice(6, 10);
+  if (!p1) return '';
+  if (!p2) return `(${p1}`;
+  if (!p3) return `(${p1}) ${p2}`;
+  return `(${p1}) ${p2}-${p3}`;
 }
-
-function loadCallContext(callTypeId) {
-  const key = state.user ? `joc-call-context-${state.user.uid}-${callTypeId}` : '';
-  if (!key) return {};
-  try {
-    return JSON.parse(localStorage.getItem(key) || '{}');
-  } catch {
-    return {};
-  }
+function currentValue(field) { return state.callContext[field] ?? ''; }
+function updateField(field, value, options = {}) {
+  const { renderAfter = true } = options;
+  const normalized = normalizeFieldValue(field, value);
+  state.callContext[field] = normalized;
+  if (field === 'client_address' && state.quoteDraft && !state.quoteOpen) state.quoteDraft.address = normalized;
+  persistCallContext();
+  if (renderAfter) render();
+  return normalized;
 }
 
 function blockVisible(block) {
@@ -191,60 +228,6 @@ function blockVisible(block) {
     return safeText(state.callContext[block.show_when_equals.field]) === safeText(block.show_when_equals.value);
   }
   return true;
-}
-
-function currentValue(field) {
-  return state.callContext[field] ?? '';
-}
-
-function normalizeFieldValue(field, value) {
-  if (field === 'client_phone') return formatPhone(value);
-  return value;
-}
-
-function updateField(field, value, options = {}) {
-  const { renderAfter = true } = options;
-  value = normalizeFieldValue(field, value);
-  state.callContext[field] = value;
-  persistCallContext();
-  if (renderAfter) render();
-  return value;
-}
-
-async function lookupZillowInline() {
-  const address = state.callContext.client_address;
-  if (!address || !quoteApiConfig.rapidApiKey || quoteApiConfig.rapidApiKey === 'REPLACE_ME') {
-    alert('Add your RapidAPI key in js/quote-config.js first, then enter an address.');
-    return;
-  }
-  try {
-    const data = await fetchZillow(address);
-    applyZillowDataToContext(data);
-    render();
-  } catch (error) {
-    alert(error.message || 'Lookup failed.');
-  }
-}
-
-async function fetchZillow(address) {
-  const res = await fetch(`https://${quoteApiConfig.rapidApiHost}/byaddress?propertyaddress=${encodeURIComponent(address)}`, {
-    headers: {
-      'x-rapidapi-key': quoteApiConfig.rapidApiKey,
-      'x-rapidapi-host': quoteApiConfig.rapidApiHost,
-      'Content-Type': 'application/json',
-    },
-  });
-  if (!res.ok) throw new Error(`Lookup failed (${res.status}).`);
-  return res.json();
-}
-
-function applyZillowDataToContext(data) {
-  const sqft = data['Area(sqft)'] != null ? Number(data['Area(sqft)']) : '';
-  state.callContext.client_address = [data?.PropertyAddress?.streetAddress, data?.PropertyAddress?.city, data?.PropertyAddress?.state, data?.PropertyAddress?.zipcode].filter(Boolean).join(', ') || state.callContext.client_address || '';
-  state.callContext.sqft = sqft ? String(Math.round(sqft)) : state.callContext.sqft || '';
-  state.callContext.beds = data.Bedrooms != null ? String(data.Bedrooms) : state.callContext.beds || '';
-  state.callContext.baths = data.Bathrooms != null ? String(data.Bathrooms) : state.callContext.baths || '';
-  persistCallContext();
 }
 
 function renderScriptBlock(block) {
@@ -284,7 +267,7 @@ function renderAuth() {
     <div class="auth-wrap">
       <div class="panel auth-card">
         <h2>Joy of Cleaning Call Guide</h2>
-        <p>Fresh rebuild. Same Firebase project, same repo, clean foundation.</p>
+        <p>Clean rebuild, same Firebase project, same repo.</p>
         <div class="form-stack">
           <div class="field"><label>Email</label><input id="auth-email" type="email" autocomplete="email" /></div>
           <div class="field"><label>Password</label><input id="auth-password" type="password" autocomplete="current-password" /></div>
@@ -298,24 +281,12 @@ function renderAuth() {
     </div>`;
 
   document.getElementById('signin-btn').onclick = async () => {
-    state.authError = '';
-    renderAuth();
-    try {
-      await signIn(valueOf('auth-email'), valueOf('auth-password'));
-    } catch (error) {
-      state.authError = error.message;
-      renderAuth();
-    }
+    try { await signIn(valueOf('auth-email'), valueOf('auth-password')); }
+    catch (error) { state.authError = error.message; renderAuth(); }
   };
   document.getElementById('signup-btn').onclick = async () => {
-    state.authError = '';
-    renderAuth();
-    try {
-      await signUp(valueOf('auth-email'), valueOf('auth-password'));
-    } catch (error) {
-      state.authError = error.message;
-      renderAuth();
-    }
+    try { await signUp(valueOf('auth-email'), valueOf('auth-password')); }
+    catch (error) { state.authError = error.message; renderAuth(); }
   };
 }
 
@@ -372,18 +343,14 @@ function renderHome() {
       alert(error.message || 'Import failed.');
     }
   };
-
   if (state.settingsOpen) bindSettingsModal();
 }
 
 function renderSettingsModal() {
   return `
     <div class="modal-backdrop" id="settings-backdrop">
-      <div class="modal" style="width:min(460px,100%)">
-        <div class="modal-head">
-          <h3>Settings</h3>
-          <div class="row"><button class="btn" id="settings-close">Close</button></div>
-        </div>
+      <div class="modal modal-small">
+        <div class="modal-head"><h3>Settings</h3><div class="row"><button class="btn" id="settings-close">Close</button></div></div>
         <div class="modal-body form-stack">
           <div class="field"><label>Rep name</label><input id="settings-rep" type="text" value="${escapeAttr(state.settings.repName || '')}" placeholder="Andre" /></div>
           <div class="field"><label>Theme</label><select id="settings-theme"><option value="light" ${state.settings.theme === 'light' ? 'selected' : ''}>Light</option><option value="dark" ${state.settings.theme === 'dark' ? 'selected' : ''}>Dark</option></select></div>
@@ -392,7 +359,6 @@ function renderSettingsModal() {
       </div>
     </div>`;
 }
-
 function bindSettingsModal() {
   document.getElementById('settings-close').onclick = () => { state.settingsOpen = false; renderHome(); };
   document.getElementById('settings-backdrop').onclick = (e) => { if (e.target.id === 'settings-backdrop') { state.settingsOpen = false; renderHome(); } };
@@ -409,33 +375,54 @@ function bindSettingsModal() {
 function renderCall() {
   const callType = getActiveCallType();
   const step = getActiveStep();
-  if (!callType || !step) {
-    goHome();
-    return;
-  }
+  if (!callType || !step) { goHome(); return; }
   const steps = getActiveSteps();
   appEl.innerHTML = `
     <div class="app-shell call-shell">
-      <div class="stepbar">
+      <div class="call-header-row">
         <button class="btn home-btn" id="home-btn">Home</button>
-        ${steps.map((s) => `<button class="step-tab ${s.id === step.id ? 'active' : ''}" data-step="${escapeAttr(s.id)}">${escapeHtml(s.sidebar_label || s.title || s.id)}</button>`).join('')}
-      </div>
-      <div class="panel script-panel">
-        <div class="script-stack">
-          ${(step.script_blocks || []).map(renderScriptBlock).join('')}
-        </div>
-        <div class="nav-row">
-          <button class="btn" id="back-btn">Back</button>
-          <button class="btn primary" id="next-btn">Next</button>
+        <div class="stepbar">
+          ${steps.map((s, idx) => `<button class="step-tab ${s.id === step.id ? 'active' : ''}" data-step="${escapeAttr(s.id)}"><span class="step-num">${String(idx + 1).padStart(2, '0')}</span><span>${escapeHtml(s.sidebar_label || s.title || s.id)}</span></button>`).join('')}
         </div>
       </div>
+      <div class="call-content-grid">
+        <div class="tools-rail panel">
+          <button class="tool-btn" id="tool-quote" title="Open calculator"><span class="tool-icon">🧮</span><span>Calc</span></button>
+          <button class="tool-btn" id="tool-client" title="Open client info"><span class="tool-icon">👤</span><span>Client</span></button>
+        </div>
+        <div class="panel script-panel">
+          <div class="script-stack">
+            ${renderStepContent(step)}
+          </div>
+          <div class="nav-row">
+            <button class="btn" id="back-btn">Back</button>
+            <button class="btn primary" id="next-btn">Next</button>
+          </div>
+        </div>
+      </div>
+      ${state.clientInfoOpen ? renderClientInfoModal() : ''}
       ${state.quoteOpen ? renderQuoteModal() : ''}
     </div>`;
 
+  bindCallHandlers();
+}
+
+function renderStepContent(step) {
+  if (Array.isArray(step.script_blocks) && step.script_blocks.length) {
+    return step.script_blocks.map(renderScriptBlock).join('');
+  }
+  const lines = safeText(step.script).split('\n').filter(Boolean);
+  return lines.map((line) => `<div class="script-line">${escapeHtml(resolveTokens(line))}</div>`).join('');
+}
+
+function bindCallHandlers() {
   document.getElementById('home-btn').onclick = goHome;
   document.getElementById('back-btn').onclick = goBack;
   document.getElementById('next-btn').onclick = goNext;
+  document.getElementById('tool-quote').onclick = openQuoteTool;
+  document.getElementById('tool-client').onclick = () => { state.clientInfoOpen = true; renderCall(); };
   appEl.querySelectorAll('[data-step]').forEach((btn) => btn.onclick = () => { state.activeStepId = btn.dataset.step; renderCall(); });
+
   appEl.querySelectorAll('[data-field]').forEach((el) => {
     const field = el.dataset.field;
     const tag = (el.tagName || '').toLowerCase();
@@ -447,95 +434,273 @@ function renderCall() {
         const normalized = updateField(field, event.target.value, { renderAfter: false });
         if (normalized !== event.target.value) event.target.value = normalized;
       });
-      el.addEventListener('blur', (event) => {
-        const normalized = updateField(field, event.target.value, { renderAfter: true });
-        if (normalized !== event.target.value) event.target.value = normalized;
+      el.addEventListener('blur', async (event) => {
+        const prev = currentValue(field);
+        const normalized = updateField(field, event.target.value, { renderAfter: false });
+        if (field === 'client_address' && normalized && normalized !== prev) {
+          await lookupZillowInline();
+          return;
+        }
+        renderCall();
       });
-      el.addEventListener('keydown', (event) => {
+      el.addEventListener('keydown', async (event) => {
         if (event.key === 'Enter') {
           event.preventDefault();
-          const normalized = updateField(field, event.target.value, { renderAfter: true });
-          if (normalized !== event.target.value) event.target.value = normalized;
+          const prev = currentValue(field);
+          const normalized = updateField(field, event.target.value, { renderAfter: false });
+          if (field === 'client_address' && normalized && normalized !== prev) {
+            await lookupZillowInline();
+            return;
+          }
+          renderCall();
         }
       });
     } else {
-      el.addEventListener('change', (event) => updateField(field, event.target.value, { renderAfter: true }));
+      el.addEventListener('change', (event) => {
+        updateField(field, event.target.value, { renderAfter: true });
+      });
     }
   });
-  appEl.querySelectorAll('[data-action]').forEach((btn) => btn.onclick = handleActionClick);
+
+  appEl.querySelectorAll('[data-action]').forEach((btn) => {
+    btn.onclick = async () => {
+      const action = btn.dataset.action;
+      if (action === 'open_quote_tool') return openQuoteTool();
+      if (action === 'lookup_zillow') return lookupZillowInline();
+      if (action === 'apply_latest_quote' || action === 'apply_quote_to_call') return applyQuoteToCall();
+    };
+  });
+
+  if (state.clientInfoOpen) bindClientInfoModal();
   if (state.quoteOpen) bindQuoteModal();
 }
 
-function handleActionClick(event) {
-  const action = event.currentTarget.dataset.action;
-  if (action === 'lookup_zillow') return lookupZillowInline();
-  if (action === 'open_quote_tool') return openQuoteTool();
-  if (action === 'apply_quote_to_call') return applyQuoteToCall();
+async function lookupZillowInline() {
+  const address = state.callContext.client_address;
+  if (!address || !quoteApiConfig.rapidApiKey || quoteApiConfig.rapidApiKey === 'REPLACE_ME') {
+    alert('Add your RapidAPI key in js/quote-config.js first, then enter an address.');
+    return;
+  }
+  try {
+    const data = await fetchZillow(address);
+    applyZillowDataToContext(data);
+    state.quoteDraft = mergeQuoteDraftWithContext(buildQuoteDraftFromContext());
+    renderCall();
+  } catch (error) {
+    alert(error.message || 'Lookup failed.');
+  }
+}
+
+async function fetchZillow(address) {
+  const res = await fetch(`https://${quoteApiConfig.rapidApiHost}/byaddress?propertyaddress=${encodeURIComponent(address)}`, {
+    headers: {
+      'x-rapidapi-key': quoteApiConfig.rapidApiKey,
+      'x-rapidapi-host': quoteApiConfig.rapidApiHost,
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!res.ok) throw new Error(`Lookup failed (${res.status}).`);
+  return res.json();
+}
+
+function applyZillowDataToContext(data) {
+  const sqft = data['Area(sqft)'] != null ? Number(data['Area(sqft)']) : '';
+  state.callContext.client_address = [data?.PropertyAddress?.streetAddress, data?.PropertyAddress?.city, data?.PropertyAddress?.state, data?.PropertyAddress?.zipcode].filter(Boolean).join(', ') || state.callContext.client_address || '';
+  state.callContext.sqft = sqft ? String(Math.round(sqft)) : state.callContext.sqft || '';
+  state.callContext.beds = data.Bedrooms != null ? String(data.Bedrooms) : state.callContext.beds || '';
+  state.callContext.baths = data.Bathrooms != null ? String(data.Bathrooms) : state.callContext.baths || '';
+  persistCallContext();
+}
+
+function renderClientInfoModal() {
+  return `
+    <div class="modal-backdrop" id="client-backdrop">
+      <div class="modal modal-small">
+        <div class="modal-head"><h3>Current Client</h3><div class="row"><button class="btn" id="client-close">Close</button></div></div>
+        <div class="modal-body form-stack">
+          <div class="field"><label>Full name</label><input id="client-name" type="text" value="${escapeAttr(currentValue('client_name'))}" /></div>
+          <div class="field"><label>Email</label><input id="client-email" type="email" value="${escapeAttr(currentValue('client_email'))}" /></div>
+          <div class="field"><label>Phone</label><input id="client-phone" type="tel" value="${escapeAttr(currentValue('client_phone'))}" /></div>
+          <div class="field"><label>Address</label><input id="client-address" type="text" value="${escapeAttr(currentValue('client_address'))}" /></div>
+          <div class="field"><label>Sqft</label><input id="client-sqft" type="text" value="${escapeAttr(currentValue('sqft'))}" /></div>
+          <div class="field"><label>Beds</label><input id="client-beds" type="text" value="${escapeAttr(currentValue('beds'))}" /></div>
+          <div class="field"><label>Baths</label><input id="client-baths" type="text" value="${escapeAttr(currentValue('baths'))}" /></div>
+          <div class="field"><label>Cleaning path</label><input id="client-path" type="text" value="${escapeAttr(currentValue('cleaning_path'))}" /></div>
+          <div class="auth-actions">
+            <button class="btn danger" id="client-clear">Clear form</button>
+            <button class="btn primary" id="client-done">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindClientInfoModal() {
+  const softBind = (id, field) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', (event) => {
+      const normalized = updateField(field, event.target.value, { renderAfter: false });
+      if (normalized !== event.target.value) event.target.value = normalized;
+    });
+    el.addEventListener('blur', () => { persistCallContext(); });
+  };
+  softBind('client-name', 'client_name');
+  softBind('client-email', 'client_email');
+  softBind('client-phone', 'client_phone');
+  softBind('client-address', 'client_address');
+  softBind('client-sqft', 'sqft');
+  softBind('client-beds', 'beds');
+  softBind('client-baths', 'baths');
+  softBind('client-path', 'cleaning_path');
+
+  document.getElementById('client-close').onclick = () => { state.clientInfoOpen = false; renderCall(); };
+  document.getElementById('client-done').onclick = () => { persistCallContext(); state.clientInfoOpen = false; renderCall(); };
+  document.getElementById('client-clear').onclick = () => {
+    if (!confirm('Clear the current call info?')) return;
+    state.callContext = {};
+    persistCallContext();
+    state.quoteDraft = buildQuoteDraftFromContext();
+    state.clientInfoOpen = false;
+    renderCall();
+  };
+  document.getElementById('client-backdrop').onclick = (e) => { if (e.target.id === 'client-backdrop') { state.clientInfoOpen = false; renderCall(); } };
+}
+
+function buildQuoteDraftFromContext() {
+  const serviceType = mapContextServiceToQuoteType(state.callContext.service_type || state.callContext.cleaning_path || 'DEEP');
+  return {
+    address: state.callContext.client_address || '',
+    sqft: state.callContext.sqft || '',
+    beds: state.callContext.beds || '',
+    baths: state.callContext.baths || '',
+    serviceType,
+    rateMode: 'currentRate',
+    dirtLevel: state.callContext.dirt_level || '3',
+    bandId: findBandBySqft(Number(state.callContext.sqft || 0))?.id || '0-700',
+    addOns: { pets: 0, doors: 0, windows: 0, laundry: 0, fridge: 0, oven: 0, fAndS: 0, laundryAndFS: 0 },
+    lookup: null,
+  };
+}
+function mergeQuoteDraftWithContext(draft) {
+  const current = state.quoteDraft || {};
+  return { ...current, ...draft, addOns: { ...(current.addOns || {}), ...(draft.addOns || {}) } };
+}
+function mapContextServiceToQuoteType(value) {
+  const v = safeText(value).toLowerCase();
+  if (v.includes('post')) return SERVICE_TYPES.POST_CONSTRUCTION;
+  if (v.includes('move')) return SERVICE_TYPES.MOVE_IN_OUT;
+  return SERVICE_TYPES.DEEP;
 }
 
 function openQuoteTool() {
-  if (!state.quoteDraft) {
-    state.quoteDraft = {
-      address: state.callContext.client_address || '',
-      sqft: state.callContext.sqft || '',
-      beds: state.callContext.beds || '',
-      baths: state.callContext.baths || '',
-      serviceType: mapCleaningPathToServiceType(state.callContext.cleaning_path) || state.callContext.service_type || 'DEEP',
-      dirtLevel: state.callContext.dirt_level || '3',
-      addOns: { fridge: 0, oven: 0, windows: 0, pets: 0 },
-    };
-  }
   state.quoteOpen = true;
+  state.quoteError = '';
+  state.quoteDraft = mergeQuoteDraftWithContext(buildQuoteDraftFromContext());
+  renderCall();
+}
+function closeQuoteTool() {
+  state.quoteOpen = false;
+  state.quoteLoading = false;
+  state.quoteError = '';
   renderCall();
 }
 
-function mapCleaningPathToServiceType(path) {
-  if (path === 'move_in_out') return 'MOVE-IN/OUT';
-  if (path === 'post_construction') return 'POST CONSTRUCTION';
-  return 'DEEP';
+function readNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
 }
-
-function calculateQuote(draft) {
-  const sqft = Number(draft.sqft || 0);
-  const band = QUOTE_BANDS.find((b) => sqft >= b.min && sqft <= b.max) || QUOTE_BANDS[0];
-  const serviceType = draft.serviceType || 'DEEP';
-  const rate = RATE;
-  const dirt = Math.max(1, Math.min(10, Number(draft.dirtLevel || 3)));
-  const dirtCharge = dirt > 3 ? (dirt - 3) * 30 + (serviceType === 'MOVE-IN/OUT' ? 30 : 0) : 0;
-  const addOnTotal = Number(draft.addOns?.fridge || 0) * ADD_ON_RATES.fridge + Number(draft.addOns?.oven || 0) * ADD_ON_RATES.oven + Number(draft.addOns?.windows || 0) * ADD_ON_RATES.windows + Number(draft.addOns?.pets || 0) * ADD_ON_RATES.pets;
-  const baseHours = serviceType === 'DEEP' ? band.deep : band.move;
-  const recurringWeekly = money(band.weekly * rate * 1.03);
-  const recurringBiweekly = money(band.biweekly * rate * 1.03);
-  const recurringMonthly = money(band.monthly * rate * 1.03);
-  const oneTimeBeforeFees = baseHours * rate + dirtCharge + addOnTotal;
-  const oneTime = money(oneTimeBeforeFees * 1.03);
+function findBandBySqft(sqft) {
+  return QUOTE_BANDS.find((b) => sqft >= b.min && sqft <= b.max) || null;
+}
+function getBand(draft) {
+  if (draft.bandId) return QUOTE_BANDS.find((b) => b.id === draft.bandId) || QUOTE_BANDS[0];
+  if (draft.sqft) return findBandBySqft(Number(draft.sqft)) || QUOTE_BANDS[0];
+  return QUOTE_BANDS[0];
+}
+function getDirtCharge(serviceType, dirt) {
+  const d = readNumber(dirt, 3);
+  if (d <= 3) return 0;
+  const base = (d - 3) * 30;
+  return serviceType === SERVICE_TYPES.MOVE_IN_OUT ? base + 30 : base;
+}
+function getPetCharge(pets, bandId) {
+  const p = Math.max(0, Math.min(5, readNumber(pets, 0)));
+  if (!p) return 0;
+  return PET_SURCHARGES[p]?.[bandId] || 0;
+}
+function getAddOnBreakdown(addOns = {}) {
   return {
-    bandId: band.id,
-    oneTime,
-    weekly: recurringWeekly,
-    biweekly: recurringBiweekly,
-    monthly: recurringMonthly,
-    addOnSummary: summarizeAddOns(draft.addOns),
+    doors: (addOns.doors || 0) * ADD_ONS.doors,
+    windows: (addOns.windows || 0) * ADD_ONS.windows,
+    laundry: (addOns.laundry || 0) * ADD_ONS.laundry,
+    fridge: (addOns.fridge || 0) * ADD_ONS.fridge,
+    oven: (addOns.oven || 0) * ADD_ONS.oven,
+    fAndS: (addOns.fAndS || 0) * ADD_ONS.fAndS,
+    laundryAndFS: (addOns.laundryAndFS || 0) * ADD_ONS.laundryAndFS,
   };
 }
-
-function summarizeAddOns(addOns = {}) {
-  const parts = [];
-  if (Number(addOns.fridge || 0)) parts.push(`Fridge × ${addOns.fridge}`);
-  if (Number(addOns.oven || 0)) parts.push(`Oven × ${addOns.oven}`);
-  if (Number(addOns.windows || 0)) parts.push(`Windows × ${addOns.windows}`);
-  if (Number(addOns.pets || 0)) parts.push(`Pets × ${addOns.pets}`);
-  return parts.join(' • ');
+function getAddOnTotal(addOns = {}) {
+  const d = getAddOnBreakdown(addOns);
+  return Object.values(d).reduce((a, b) => a + b, 0);
+}
+function getBaseOneTimeBeforeFees(serviceType, band, rate) {
+  return serviceType === SERVICE_TYPES.DEEP ? band.deepToHours * rate : band.moveToHours * rate;
+}
+function getRecurringBaseBeforeFees(kind, band, rate) {
+  if (kind === 'weekly') return band.weeklyToHours * rate;
+  if (kind === 'biweekly') return band.biweeklyToHours * rate;
+  return band.monthlyToHours * rate;
+}
+function withAdminFee(beforeFees) {
+  const adminFee = round2(beforeFees * ADMIN_FEE_RATE);
+  return { beforeFees: round2(beforeFees), adminFee, total: round2(beforeFees + adminFee) };
+}
+function formatAddOnSummaryFromInputs(pets = 0, addOns = {}) {
+  const labels = [];
+  if (Number(pets) > 0) labels.push(`Pets × ${pets}`);
+  [['Doors', addOns.doors], ['Windows', addOns.windows], ['Laundry', addOns.laundry], ['Fridge', addOns.fridge], ['Oven', addOns.oven], ['F&S', addOns.fAndS], ['Laundry + F&S', addOns.laundryAndFS]].forEach(([label, count]) => {
+    if (Number(count) > 0) labels.push(`${label} × ${count}`);
+  });
+  return labels.join(' • ');
+}
+function calculateQuote(draft) {
+  const band = getBand(draft);
+  const rate = RATE_MODES[draft.rateMode || 'currentRate'].hourlyRate;
+  const dirtCharge = getDirtCharge(draft.serviceType, draft.dirtLevel);
+  const petCharge = getPetCharge(draft.addOns?.pets, band.id);
+  const addOnBreakdown = getAddOnBreakdown(draft.addOns);
+  const addOnTotal = getAddOnTotal(draft.addOns);
+  let oneTimeBeforeFees = getBaseOneTimeBeforeFees(draft.serviceType, band, rate) + dirtCharge + petCharge + addOnTotal;
+  let hoursEstimate;
+  if (draft.serviceType === SERVICE_TYPES.POST_CONSTRUCTION) {
+    oneTimeBeforeFees = round2((oneTimeBeforeFees / rate) * 1.3 * 80);
+    hoursEstimate = ceilHalf(oneTimeBeforeFees / 70);
+  } else {
+    hoursEstimate = ceilQuarter((oneTimeBeforeFees - 10) / rate);
+  }
+  const oneTime = withAdminFee(oneTimeBeforeFees);
+  const weekly = withAdminFee(getRecurringBaseBeforeFees('weekly', band, rate));
+  const biweekly = withAdminFee(getRecurringBaseBeforeFees('biweekly', band, rate));
+  const monthly = withAdminFee(getRecurringBaseBeforeFees('monthly', band, rate));
+  return {
+    selected: { bandId: band.id, rate, serviceType: draft.serviceType, dirt: draft.dirtLevel },
+    breakdown: { baseOneTimeBeforeFees: round2(getBaseOneTimeBeforeFees(draft.serviceType === SERVICE_TYPES.DEEP ? SERVICE_TYPES.DEEP : SERVICE_TYPES.MOVE_IN_OUT, band, rate)), dirtCharge: round2(dirtCharge), petCharge: round2(petCharge), addOnBreakdown, addOnTotal: round2(addOnTotal) },
+    oneTime: { ...oneTime, initial25OffAmount: round2(oneTime.beforeFees * INITIAL_DISCOUNT_RATE), discountedTotal: round2(oneTime.total * (1 - INITIAL_DISCOUNT_RATE)), cancellationFee: round2(oneTime.beforeFees * CANCELLATION_FEE_RATE), hoursEstimate },
+    recurring: { weekly, biweekly, monthly },
+    addOnSummary: formatAddOnSummaryFromInputs(draft.addOns?.pets, draft.addOns),
+  };
 }
 
 function renderQuoteModal() {
-  const draft = state.quoteDraft || {
-    address: '', sqft: '', beds: '', baths: '', serviceType: 'DEEP', dirtLevel: '3', addOns: { fridge: 0, oven: 0, windows: 0, pets: 0 },
-  };
+  const draft = state.quoteDraft || buildQuoteDraftFromContext();
   const quote = calculateQuote(draft);
+  const lookup = draft.lookup || {};
+  const addonSummary = quote.addOnSummary || 'None selected';
+  const showSplit = draft.serviceType === SERVICE_TYPES.DEEP;
   return `
     <div class="modal-backdrop" id="quote-backdrop">
-      <div class="modal">
+      <div class="modal modal-quote">
         <div class="modal-head">
           <h3>Quote Calculator</h3>
           <div class="row">
@@ -543,111 +708,206 @@ function renderQuoteModal() {
             <button class="btn" id="quote-close-top">Close</button>
           </div>
         </div>
-        <div class="modal-body quote-grid">
-          <div class="quote-toolbar">
-            <div class="field"><label>Property address</label><input id="quote-address" type="text" value="${escapeAttr(draft.address || '')}" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" /></div>
+        <div class="modal-body quote-body">
+          <div class="quote-toolbar quote-panel">
+            <div class="field quote-address-field"><label>Property address</label><input id="quote-address" type="text" value="${escapeAttr(draft.address || '')}" placeholder="833 Marco Dr NE, St Petersburg, FL 33702" /></div>
             <div class="field"><label>Exact sqft</label><input id="quote-sqft" type="number" min="0" step="1" value="${escapeAttr(draft.sqft || '')}" /></div>
-            <div class="topbar-actions" style="align-items:end"><button class="btn primary" id="quote-lookup">Search Zillow</button></div>
+            <div class="toolbar-actions-inline"><button class="btn primary" id="quote-lookup">Search Zillow</button><button class="btn" id="quote-reset">Reset</button></div>
           </div>
-          ${state.quoteError ? `<div class="quote-note" style="color: var(--danger)">${escapeHtml(state.quoteError)}</div>` : ''}
-          <div class="quote-summary">
-            <div class="summary-card"><div class="k">Beds</div><div class="v">${escapeHtml(draft.beds || '—')}</div></div>
-            <div class="summary-card"><div class="k">Baths</div><div class="v">${escapeHtml(draft.baths || '—')}</div></div>
-            <div class="summary-card"><div class="k">One-Time</div><div class="v">${escapeHtml(quote.oneTime)}</div></div>
-            <div class="summary-card"><div class="k">Biweekly</div><div class="v">${escapeHtml(quote.biweekly)}</div></div>
+
+          <div class="quote-property-card quote-panel">
+            <div class="quote-property-top">
+              <div>
+                <div class="quote-section-title">Property summary</div>
+                <div class="quote-status">${state.quoteLoading ? 'Searching Zillow…' : state.quoteError ? escapeHtml(state.quoteError) : lookup.address ? 'Property loaded' : 'No property loaded yet'}</div>
+              </div>
+              <div class="quote-status-chip">${lookup.address ? 'Loaded' : 'Waiting for lookup'}</div>
+            </div>
+            <div class="quote-property-main ${lookup.address ? 'active' : ''}">
+              <div class="prop-big">
+                <div class="address">${escapeHtml(lookup.address || draft.address || '—')}</div>
+                <div class="meta">${buildMetaRow(lookup)}</div>
+              </div>
+              <div class="prop-stat"><div class="k">Bedrooms</div><div class="v">${escapeHtml(draft.beds || '—')}</div></div>
+              <div class="prop-stat"><div class="k">Bathrooms</div><div class="v">${escapeHtml(draft.baths || '—')}</div></div>
+              <div class="prop-stat"><div class="k">Sq. Footage</div><div class="v">${escapeHtml(draft.sqft || '—')}</div></div>
+            </div>
           </div>
-          <div class="quote-fields">
-            <div class="field"><label>Service type</label><select id="quote-service"><option ${draft.serviceType === 'DEEP' ? 'selected' : ''}>DEEP</option><option ${draft.serviceType === 'MOVE-IN/OUT' ? 'selected' : ''}>MOVE-IN/OUT</option><option ${draft.serviceType === 'POST CONSTRUCTION' ? 'selected' : ''}>POST CONSTRUCTION</option></select></div>
-            <div class="field"><label>Dirt level</label><select id="quote-dirt">${Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}" ${String(draft.dirtLevel) === String(i + 1) ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></div>
-            <div class="field"><label>Band</label><input type="text" value="${escapeAttr(quote.bandId)}" disabled /></div>
-            <div class="field"><label>Fridge</label><input id="quote-fridge" type="number" min="0" step="1" value="${escapeAttr(draft.addOns.fridge || 0)}" /></div>
-            <div class="field"><label>Oven</label><input id="quote-oven" type="number" min="0" step="1" value="${escapeAttr(draft.addOns.oven || 0)}" /></div>
-            <div class="field"><label>Windows</label><input id="quote-windows" type="number" min="0" step="1" value="${escapeAttr(draft.addOns.windows || 0)}" /></div>
-            <div class="field"><label>Pets</label><input id="quote-pets" type="number" min="0" step="1" value="${escapeAttr(draft.addOns.pets || 0)}" /></div>
+
+          <div class="quote-sheet quote-panel">
+            <div class="sheet-grid">
+              <div class="cell-label">Rate Mode</div>
+              <div class="cell-label">Type of Cleaning</div>
+              <div class="cell-label">Sq Ft Band</div>
+              <div class="cell-label">Dirt</div>
+              <div class="cell-label">Add-ons</div>
+
+              <div class="cell-input"><select id="quote-rate-mode">${Object.entries(RATE_MODES).map(([key, item]) => `<option value="${key}" ${draft.rateMode === key ? 'selected' : ''}>${escapeHtml(item.label)} — ${money(item.hourlyRate)}/hr</option>`).join('')}</select></div>
+              <div class="cell-input"><select id="quote-service"><option value="${SERVICE_TYPES.DEEP}" ${draft.serviceType === SERVICE_TYPES.DEEP ? 'selected' : ''}>DEEP</option><option value="${SERVICE_TYPES.MOVE_IN_OUT}" ${draft.serviceType === SERVICE_TYPES.MOVE_IN_OUT ? 'selected' : ''}>MOVE-IN/OUT</option><option value="${SERVICE_TYPES.POST_CONSTRUCTION}" ${draft.serviceType === SERVICE_TYPES.POST_CONSTRUCTION ? 'selected' : ''}>POST CONSTRUCTION</option></select></div>
+              <div class="cell-input"><select id="quote-band">${QUOTE_BANDS.map((b) => `<option value="${b.id}" ${draft.bandId === b.id ? 'selected' : ''}>${b.id}</option>`).join('')}</select></div>
+              <div class="cell-input"><select id="quote-dirt">${Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}" ${String(draft.dirtLevel) === String(i + 1) ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></div>
+              <div class="cell-input"><details class="addons-details" ${addonSummary !== 'None selected' ? 'open' : ''}><summary><span>Add-ons menu</span><span class="addons-summary-note">${escapeHtml(addonSummary)}</span></summary>
+                <div class="addons-grid">
+                  ${renderAddonInput('Pets', 'quote-pets', draft.addOns?.pets || 0)}
+                  ${renderAddonInput('Doors', 'quote-doors', draft.addOns?.doors || 0)}
+                  ${renderAddonInput('Windows', 'quote-windows', draft.addOns?.windows || 0)}
+                  ${renderAddonInput('Laundry', 'quote-laundry', draft.addOns?.laundry || 0)}
+                  ${renderAddonInput('Fridge', 'quote-fridge', draft.addOns?.fridge || 0)}
+                  ${renderAddonInput('Oven', 'quote-oven', draft.addOns?.oven || 0)}
+                  ${renderAddonInput('F & S', 'quote-fs', draft.addOns?.fAndS || 0)}
+                  ${renderAddonInput('Laundry + F&S', 'quote-laundryfs', draft.addOns?.laundryAndFS || 0)}
+                </div>
+              </details></div>
+            </div>
+
+            <div class="pricing-head">
+              <div class="pricing-title">Base Pricing</div>
+              <div class="pricing-title">Dirt</div>
+              <div class="pricing-title">Add-ons</div>
+            </div>
+            <div class="pricing-values">
+              <div class="cell-value base"><div class="k">Base one-time before fees</div><div class="v">${money(quote.breakdown.baseOneTimeBeforeFees)}</div></div>
+              <div class="cell-value alt"><div class="k">Dirt</div><div class="v">${money(quote.breakdown.dirtCharge)}</div></div>
+              <div class="cell-value"><div class="k">Add-ons total</div><div class="v">${money(quote.breakdown.addOnTotal + quote.breakdown.petCharge)}</div></div>
+            </div>
+            ${addonSummary !== 'None selected' ? `<div class="addon-breakdown-strip"><div class="addon-breakdown-title">Selected add-ons</div><div class="addon-breakdown-text">${escapeHtml(addonSummary)}</div></div>` : ''}
+
+            <div class="bottom-grid">
+              <div class="block">
+                <div class="block-title">Recurring prices</div>
+                <div class="table">
+                  <div class="table-head">Visit</div><div class="table-head">Before Fees</div><div class="table-head">Admin Fee</div><div class="table-head">Total</div>
+                  <div class="table-cell label">Weekly visit</div><div class="table-cell">${money(quote.recurring.weekly.beforeFees)}</div><div class="table-cell">${money(quote.recurring.weekly.adminFee)}</div><div class="table-cell green">${money(quote.recurring.weekly.total)}</div>
+                  <div class="table-cell label">Biweekly visit</div><div class="table-cell">${money(quote.recurring.biweekly.beforeFees)}</div><div class="table-cell">${money(quote.recurring.biweekly.adminFee)}</div><div class="table-cell green">${money(quote.recurring.biweekly.total)}</div>
+                  <div class="table-cell label">Monthly visit</div><div class="table-cell">${money(quote.recurring.monthly.beforeFees)}</div><div class="table-cell">${money(quote.recurring.monthly.adminFee)}</div><div class="table-cell green">${money(quote.recurring.monthly.total)}</div>
+                </div>
+              </div>
+              <div class="block">
+                <div class="block-title">One-time total</div>
+                <div class="meta-grid">
+                  <div class="summary-box"><div class="k">Before fees</div><div class="v">${money(quote.oneTime.beforeFees)}</div></div>
+                  <div class="summary-box"><div class="k">Admin fee 3%</div><div class="v">${money(quote.oneTime.adminFee)}</div></div>
+                  <div class="summary-box green big split" style="grid-column:span 2;">
+                    ${showSplit ? `<div class="split-total active"><div class="split-half"><div class="k">Recurring sign-up price</div><div class="v">${money(quote.oneTime.discountedTotal)}</div></div><div class="split-half"><div class="k">Full price</div><div class="v">${money(quote.oneTime.total)}</div></div></div>` : `<div class="single-total"><div class="k">Total after fees</div><div class="v">${money(quote.oneTime.total)}</div></div>`}
+                  </div>
+                  <div class="summary-box"><div class="k">Initial 25% off</div><div class="v">${money(quote.oneTime.initial25OffAmount)}</div></div>
+                  <div class="summary-box"><div class="k">Cancellation fee</div><div class="v">${money(quote.oneTime.cancellationFee)}</div></div>
+                </div>
+              </div>
+              <div class="block">
+                <div class="block-title">Quick facts</div>
+                <div class="meta-grid">
+                  <div class="summary-box"><div class="k">Service</div><div class="v">${escapeHtml(draft.serviceType)}</div></div>
+                  <div class="summary-box"><div class="k">Hourly rate</div><div class="v">${money(quote.selected.rate)}</div></div>
+                  <div class="summary-box"><div class="k">Hours</div><div class="v">${quote.oneTime.hoursEstimate}</div></div>
+                  <div class="summary-box"><div class="k">Add-ons total</div><div class="v">${money(quote.breakdown.addOnTotal + quote.breakdown.petCharge)}</div></div>
+                  <div class="summary-box" style="grid-column:span 2;"><div class="k">Band</div><div class="v">${escapeHtml(quote.selected.bandId)}</div></div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="quote-summary">
-            <div class="summary-card"><div class="k">Weekly</div><div class="v">${escapeHtml(quote.weekly)}</div></div>
-            <div class="summary-card"><div class="k">Biweekly</div><div class="v">${escapeHtml(quote.biweekly)}</div></div>
-            <div class="summary-card"><div class="k">Monthly</div><div class="v">${escapeHtml(quote.monthly)}</div></div>
-            <div class="summary-card"><div class="k">Add-ons</div><div class="v">${escapeHtml(quote.addOnSummary || '—')}</div></div>
-          </div>
-          <div class="topbar-actions"><button class="btn primary" id="quote-apply-bottom">Apply to Call</button></div>
         </div>
       </div>
     </div>`;
 }
 
+function buildMetaRow(lookup) {
+  const metas = [];
+  if (lookup.yearBuilt) metas.push(`Built ${lookup.yearBuilt}`);
+  if (lookup.price) metas.push(`Listed ${money(Number(lookup.price))}`);
+  if (lookup.daysOnZillow) metas.push(`${Number(lookup.daysOnZillow).toLocaleString()} days on Zillow`);
+  if (lookup.url) metas.push(`<a href="${escapeAttr(lookup.url)}" target="_blank" rel="noopener">View on Zillow ↗</a>`);
+  return metas.length ? metas.map((m) => `<span>${m}</span>`).join('') : '<span>No Zillow metadata yet</span>';
+}
+function renderAddonInput(label, id, value) {
+  return `<div class="addon-item"><label for="${id}">${escapeHtml(label)}</label><select id="${id}">${Array.from({ length: 11 }, (_, i) => `<option value="${i}" ${String(value) === String(i) ? 'selected' : ''}>${i}</option>`).join('')}</select></div>`;
+}
+
 function bindQuoteModal() {
   const draft = state.quoteDraft;
-  const syncDraft = () => {
-    draft.address = valueOf('quote-address');
-    draft.sqft = valueOf('quote-sqft');
-    draft.serviceType = valueOf('quote-service');
-    draft.dirtLevel = valueOf('quote-dirt');
-    draft.addOns.fridge = Number(valueOf('quote-fridge') || 0);
-    draft.addOns.oven = Number(valueOf('quote-oven') || 0);
-    draft.addOns.windows = Number(valueOf('quote-windows') || 0);
-    draft.addOns.pets = Number(valueOf('quote-pets') || 0);
-    state.quoteDraft = draft;
-  };
-  const bind = (id) => {
+  const textIds = ['quote-address', 'quote-sqft'];
+  textIds.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const tag = (el.tagName || '').toLowerCase();
-    const type = (el.getAttribute('type') || '').toLowerCase();
-    const isTextLike = tag === 'input' && ['text', 'email', 'tel', 'search', 'number', ''].includes(type);
-    if (isTextLike) {
-      el.addEventListener('input', syncDraft);
-      el.addEventListener('blur', () => { syncDraft(); renderCall(); });
-      el.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          syncDraft();
-          renderCall();
-        }
-      });
-    } else {
-      el.addEventListener('change', () => { syncDraft(); renderCall(); });
-    }
-  };
-  ['quote-address', 'quote-sqft', 'quote-service', 'quote-dirt', 'quote-fridge', 'quote-oven', 'quote-windows', 'quote-pets'].forEach((id) => bind(id));
+    el.addEventListener('input', () => syncQuoteDraft({ renderAfter: false }));
+    el.addEventListener('blur', () => syncQuoteDraft({ renderAfter: true }));
+    el.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); syncQuoteDraft({ renderAfter: true }); }
+    });
+  });
+  ['quote-rate-mode', 'quote-service', 'quote-band', 'quote-dirt', 'quote-pets', 'quote-doors', 'quote-windows', 'quote-laundry', 'quote-fridge', 'quote-oven', 'quote-fs', 'quote-laundryfs'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => syncQuoteDraft({ renderAfter: true }));
+  });
+
   document.getElementById('quote-close-top').onclick = closeQuoteTool;
   document.getElementById('quote-apply-top').onclick = applyQuoteToCall;
-  document.getElementById('quote-apply-bottom').onclick = applyQuoteToCall;
   document.getElementById('quote-backdrop').onclick = (e) => { if (e.target.id === 'quote-backdrop') closeQuoteTool(); };
+  document.getElementById('quote-reset').onclick = () => { state.quoteDraft = buildQuoteDraftFromContext(); state.quoteError = ''; renderCall(); };
   document.getElementById('quote-lookup').onclick = async () => {
-    state.quoteError = '';
-    const address = valueOf('quote-address');
+    syncQuoteDraft({ renderAfter: false });
+    const address = state.quoteDraft.address;
     if (!address || !quoteApiConfig.rapidApiKey || quoteApiConfig.rapidApiKey === 'REPLACE_ME') {
       state.quoteError = 'Add your RapidAPI key in js/quote-config.js and enter an address.';
       renderCall();
       return;
     }
     try {
-      const data = await fetchZillow(address);
-      draft.address = [data?.PropertyAddress?.streetAddress, data?.PropertyAddress?.city, data?.PropertyAddress?.state, data?.PropertyAddress?.zipcode].filter(Boolean).join(', ') || address;
-      draft.sqft = data['Area(sqft)'] != null ? String(Math.round(Number(data['Area(sqft)']))) : draft.sqft;
-      draft.beds = data.Bedrooms != null ? String(data.Bedrooms) : draft.beds;
-      draft.baths = data.Bathrooms != null ? String(data.Bathrooms) : draft.baths;
-      state.quoteDraft = draft;
+      state.quoteLoading = true;
       state.quoteError = '';
       renderCall();
+      const data = await fetchZillow(address);
+      state.quoteDraft.address = [data?.PropertyAddress?.streetAddress, data?.PropertyAddress?.city, data?.PropertyAddress?.state, data?.PropertyAddress?.zipcode].filter(Boolean).join(', ') || address;
+      state.quoteDraft.sqft = data['Area(sqft)'] != null ? String(Math.round(Number(data['Area(sqft)']))) : state.quoteDraft.sqft;
+      state.quoteDraft.beds = data.Bedrooms != null ? String(data.Bedrooms) : state.quoteDraft.beds;
+      state.quoteDraft.baths = data.Bathrooms != null ? String(data.Bathrooms) : state.quoteDraft.baths;
+      const band = findBandBySqft(Number(state.quoteDraft.sqft || 0));
+      if (band) state.quoteDraft.bandId = band.id;
+      state.quoteDraft.lookup = {
+        address: state.quoteDraft.address,
+        beds: state.quoteDraft.beds,
+        baths: state.quoteDraft.baths,
+        sqft: state.quoteDraft.sqft,
+        url: data.PropertyZillowURL || '',
+        yearBuilt: data.yearBuilt || '',
+        price: data.Price || '',
+        daysOnZillow: data.daysOnZillow || '',
+      };
+      state.quoteLoading = false;
+      renderCall();
     } catch (error) {
+      state.quoteLoading = false;
       state.quoteError = error.message || 'Lookup failed.';
       renderCall();
     }
   };
   document.addEventListener('keydown', escQuoteClose, { once: true });
 }
+function escQuoteClose(event) { if (event.key === 'Escape' && state.quoteOpen) closeQuoteTool(); }
 
-function escQuoteClose(event) {
-  if (event.key === 'Escape' && state.quoteOpen) closeQuoteTool();
-}
-
-function closeQuoteTool() {
-  state.quoteOpen = false;
-  state.quoteError = '';
-  renderCall();
+function syncQuoteDraft({ renderAfter = true } = {}) {
+  const draft = state.quoteDraft;
+  draft.address = valueOf('quote-address');
+  draft.sqft = valueOf('quote-sqft');
+  draft.rateMode = valueOf('quote-rate-mode');
+  draft.serviceType = valueOf('quote-service');
+  draft.bandId = valueOf('quote-band');
+  draft.dirtLevel = valueOf('quote-dirt');
+  draft.addOns.pets = Number(valueOf('quote-pets') || 0);
+  draft.addOns.doors = Number(valueOf('quote-doors') || 0);
+  draft.addOns.windows = Number(valueOf('quote-windows') || 0);
+  draft.addOns.laundry = Number(valueOf('quote-laundry') || 0);
+  draft.addOns.fridge = Number(valueOf('quote-fridge') || 0);
+  draft.addOns.oven = Number(valueOf('quote-oven') || 0);
+  draft.addOns.fAndS = Number(valueOf('quote-fs') || 0);
+  draft.addOns.laundryAndFS = Number(valueOf('quote-laundryfs') || 0);
+  if (draft.sqft) {
+    const band = findBandBySqft(Number(draft.sqft));
+    if (band) draft.bandId = band.id;
+  }
+  state.quoteDraft = draft;
+  if (renderAfter) renderCall();
 }
 
 function applyQuoteToCall() {
@@ -659,10 +919,10 @@ function applyQuoteToCall() {
   state.callContext.baths = state.quoteDraft.baths || state.callContext.baths || '';
   state.callContext.service_type = state.quoteDraft.serviceType || state.callContext.service_type || '';
   state.callContext.dirt_level = String(state.quoteDraft.dirtLevel || state.callContext.dirt_level || '');
-  state.callContext.one_time_price = q.oneTime;
-  state.callContext.weekly_price = q.weekly;
-  state.callContext.biweekly_price = q.biweekly;
-  state.callContext.monthly_price = q.monthly;
+  state.callContext.one_time_price = money(q.oneTime.total);
+  state.callContext.weekly_price = money(q.recurring.weekly.total);
+  state.callContext.biweekly_price = money(q.recurring.biweekly.total);
+  state.callContext.monthly_price = money(q.recurring.monthly.total);
   state.callContext.add_on_summary = q.addOnSummary;
   persistCallContext();
   closeQuoteTool();
@@ -677,25 +937,4 @@ function render() {
   }
   if (!state.activeCallTypeId) return renderHome();
   return renderCall();
-}
-
-function valueOf(id) {
-  return document.getElementById(id)?.value || '';
-}
-
-function money(value) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0));
-}
-
-function escapeHtml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function escapeAttr(value) {
-  return escapeHtml(value).replace(/`/g, '&#096;');
 }
