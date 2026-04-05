@@ -1,0 +1,12 @@
+CLEAN REBUILD RULES
+
+1. Runtime rendering uses only script_blocks.
+2. No phrase detection.
+3. No legacy fallback banners.
+4. Fields belong inside the step where they are asked.
+5. Back / Next are the only runtime navigation buttons.
+6. Current call data is a scratchpad, not a client database.
+7. Zillow lookup and calculator actions must be declared inside action_row blocks.
+8. Dynamic text should only show when its required data is available.
+9. Export/import uses strict JSON saved as .txt during the rebuild phase.
+10. Build one flow completely before adding more flows.
